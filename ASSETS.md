@@ -59,11 +59,14 @@ with these tunes." Registro por faixa (ver `src/config/music.ts`,
 
 **Licença**: CC0 1.0 Universal em todos os 4 casos (domínio público).
 
-**Pendência de verificação** (DESIGN.md §3.1): o critério exige respeitar a
-restrição de canais do hardware (2 pulse + 1 triangle + 1 noise). Isso não
-dá pra confirmar só lendo o arquivo — fica pendente de confirmação por
-ouvido durante playtest (mesmo método de "game feel se ajusta jogando" do
-CLAUDE.md), não foi validado ainda nesta sessão.
+**Pendência de verificação, atualizada em 2026-07-05** (DESIGN.md §3.1):
+o alvo de hardware mudou de NES pra SNES/Neo Geo depois dessas 4 faixas
+terem sido escolhidas. Elas são explicitamente "chiptune" (nome do pack:
+"Chiptune Adventures") — prováveis candidatas a re-curação, já que o novo
+alvo pede som mais rico/instrumentado, não onda quadrada pura. Fica
+pendente de confirmação por ouvido durante playtest (mesmo método de
+"game feel se ajusta jogando" do CLAUDE.md); se não servir, a biblioteca
+de música precisa ser refeita com faixas de estilo 16/32-bit.
 
 Só a faixa da fase ativa é carregada em runtime (`TilemapScene.preload`),
 não a biblioteca inteira — evita carregar ~20MB de áudio de uma vez só
@@ -76,6 +79,9 @@ pra uma fase que usa 1 mood.
 - Nenhum asset de personagem/inimigo usado ainda: guerreiro e inimigos
   são retângulos coloridos gerados por código (`PlayerController`,
   `Enemy`). Nenhuma licença aplicável.
-- Recolorização via paleta NES: decidida como não-objetivo em 2026-07-05
-  (DESIGN.md §2.1) — cores atuais (originais do pack + extraídas por
-  código) são as finais do jogo.
+- **Tileset "forest" não bate mais com o alvo visual** (decisão de
+  2026-07-05, DESIGN.md §2.1): o alvo mudou de NES pra SNES/Neo Geo
+  ("32-bit mas 2D", paletas ricas, sombreamento em gradiente). O pack
+  atual é estilo NES chapado — precisa ser substituído por um tileset CC0
+  com mais profundidade de cor antes de fechar a barra de qualidade
+  visual. Ainda não substituído.

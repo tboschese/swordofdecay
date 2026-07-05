@@ -15,6 +15,16 @@ combate, tilemap, parallax) foi 100% reaproveitado; a Sessão 6 original
 ("Prompt system", geração via IA) foi descartada. Sessões 3-5 e 7 abaixo
 foram reescritas pra fazerem sentido num jogo fixo em vez de um gerador.
 
+**Pivot visual/sonoro (2026-07-05)**: referência de hardware mudou de NES
+pra **SNES/Neo Geo** — alvo agora é "32-bit mas 2D" (paletas ricas,
+sombreamento em gradiente), não mais o visual chapado de 8 bits nem a
+restrição de canais de áudio do NES (ver CLAUDE.md, DESIGN.md §2/§3).
+Isso reabre duas pendências de asset dentro da Sessão 6 (ver lá): o
+tileset atual e as 4 faixas de música curadas são estilo NES e
+provavelmente precisam ser trocados/reavaliados pro novo alvo. Nenhuma
+sessão concluída (1-5) muda de escopo por causa disso — é só o padrão de
+qualidade visual/sonoro daqui pra frente.
+
 ---
 
 ## Sessão 1 — Arquétipos de movimento e combate (game feel puro)
@@ -133,29 +143,32 @@ com vida do guerreiro, invulnerabilidade curta e respawn.
 ---
 
 ## Sessão 6 — Música e paleta final
-`[ ]` paleta decidida em 2026-07-05; música implementada, falta playtest
+`[ ]` reaberta em 2026-07-05 pelo pivot visual/sonoro NES → SNES/Neo Geo
 
-Escopo: decidir se a paleta NES de 54 cores (DESIGN.md §2.1, pendência em
-aberto) é objetivo de verdade e aplicar; biblioteca curada de faixas CC0
-por mood (DESIGN.md §3.1).
+Escopo original: decidir se a paleta NES de 54 cores é objetivo de
+verdade; biblioteca curada de faixas CC0 por mood (DESIGN.md §3.1).
+Escopo agora inclui também alinhar tileset e música ao novo alvo
+SNES/Neo Geo (ver pivot acima).
 
-**Paleta (fechado em 2026-07-05)**: decidido que não vale a pena
-recolorizar pro subconjunto de 54 cores do NES — ver DESIGN.md §2.1.
+**Paleta (decisão de 2026-07-04 superada em 2026-07-05)**: primeiro
+decidido que não valia recolorizar pro subconjunto NES; depois o alvo
+inteiro mudou pra SNES/Neo Geo (mais cor, sombreamento em gradiente) —
+ver DESIGN.md §2.1. **Pendente**: tileset atual (`public/assets/tiles/forest`)
+é estilo NES chapado, não bate com o novo alvo — precisa ser substituído.
 
-**Música (implementado em 2026-07-05, falta confirmar critério)**: 4
-faixas CC0 de Juhani Junkala curadas por mood (`aventura`, `perigo`,
+**Música (implementado em 2026-07-05, precisa reavaliar pro novo alvo)**:
+4 faixas CC0 de Juhani Junkala curadas por mood (`aventura`, `perigo`,
 `misterio`, `final` — ver `src/config/music.ts`, ASSETS.md). `LEVEL_1`
 usa mood `aventura` (`src/levels/level1.ts`), tocando em loop via
 `TilemapScene`. Só a faixa do mood ativo é carregada, não a biblioteca
-inteira.
+inteira. **Pendente**: as 4 faixas são "chiptune" de nome/textura — podem
+não bater com o alvo mais rico de SNES/Neo Geo (DESIGN.md §3.1).
 
-**Critério de saída**: paleta final do jogo consistente (dentro do
-subconjunto escolhido, se aplicável) — atendido (decisão de não usar
-subconjunto). Toda faixa usada respeita a restrição de canais do hardware
-(DESIGN.md §3.1) — **pendente**: não dá pra confirmar isso sem ouvir; falta
-playtest manual (`npm run dev`) confirmando que a faixa de `aventura`
-soa como chiptune genuíno (não "8-bit style" com síntese moderna
-disfarçada) antes de marcar a sessão como concluída.
+**Critério de saída**: tileset final do jogo com sombreamento em
+gradiente (não chapado), consistente com o alvo SNES/Neo Geo (DESIGN.md
+§2.1) — **pendente**, tileset ainda não trocado. Faixas de música soando
+mais como trilha instrumentada de 16/32-bit do que chiptune puro
+(DESIGN.md §3.1) — **pendente**, falta playtest/re-curação.
 
 ---
 

@@ -2,14 +2,19 @@
 
 ## O que é este projeto
 
-**Sword of Decay** — jogo de plataforma 8-bit medieval. Um guerreiro com
-espada e arco atravessa fases num engine Phaser 3 próprio, orientado a
-dados, com estética e regras de hardware da era NES.
+**Sword of Decay** — jogo de plataforma medieval em pixel art. Um
+guerreiro com espada e arco atravessa fases num engine Phaser 3 próprio,
+orientado a dados, com estética inspirada em Super Nintendo/Neo Geo:
+cores ricas, sombreamento detalhado — visual "32-bit mas 2D" (pense
+Metal Slug/Castlevania SOTN), não o visual chapado de 8-bit/NES.
 
 Histórico: o projeto começou como "Tento", um gerador de jogos de
 plataforma por IA (prompt → JSON → jogo). Pivotado em 2026-07-04 pra um
 jogo único e fixo — o engine (arquétipos de movimento, combate, tilemap,
 parallax) foi reaproveitado; a camada de geração por IA foi descartada.
+Em 2026-07-05 a referência visual/sonora de hardware mudou de NES pra
+SNES/Neo Geo (ver DESIGN.md §2, §3) — a estrutura de dados do engine não
+muda, só a densidade de cor e o alvo de qualidade dos assets.
 
 ## Princípio arquitetural
 
@@ -37,10 +42,20 @@ meio do código.
 - Resolução lógica oficial: `wide` 384×224 (`src/config/resolution.ts`).
   `classic`/`square` continuam guardadas no código como referência/dev,
   mas o jogo abre sempre em `wide`; HD/Full HD/4K vêm do zoom inteiro.
-- Sprites e tiles 16×16, upscale integer, pixelArt true.
-- Paleta do tileset atual **não** é a paleta NES de 54 cores, e por
-  decisão de produto (2026-07-05) não vai ser — ver DESIGN.md §2.1.
-- Áudio: ainda não implementado (ver ROADMAP.md Sessão 6).
+- Sprites e tiles 16×16, upscale integer, pixelArt true — o grid de
+  colisão continua 16×16 mesmo com a estética SNES/Neo Geo (ver
+  DESIGN.md §2.1); o que muda é riqueza de cor/sombreamento da arte, não
+  o tamanho do tile.
+- Paleta: alvo agora é a densidade de cor de SNES/Neo Geo (não mais o
+  subconjunto restrito de 54 cores do NES) — ver DESIGN.md §2.1. Tileset
+  atual (OpenGameArt "Platformer Tileset 16x16", estilo NES simples)
+  ainda não foi trocado pra bater com esse alvo — pendência real, ver
+  ASSETS.md.
+- Áudio: biblioteca curada por mood implementada (ROADMAP.md Sessão 6,
+  `src/config/music.ts`); referência de hardware também migrou de
+  NES (2 pulse+1 triangle+1 noise) pra SNES/Neo Geo (síntese
+  FM/sample-based, mais parecida com instrumento real) — ver DESIGN.md
+  §3.1.
 
 ## Escopo atual
 

@@ -124,17 +124,27 @@ verificada por bug estrutural.
 O plano original era travar nas 54 cores do hardware NES com um gerador
 de paletas por seed (pra jogos diferentes não se confundirem visualmente
 entre si). Isso não se aplica mais — Sword of Decay é um jogo só, com uma
-paleta fixa. **Decidido em 2026-07-05 (Sessão 6)**: recolorizar pro
-subconjunto de 54 cores do NES não é objetivo do jogo. As cores atuais do
-tileset (OpenGameArt "Platformer Tileset 16x16", ver ASSETS.md) já foram
-aprovadas em playtest na Sessão 2 e o ganho de recolorizar pra um subset
-mais restrito não paga o retrabalho visual — a inspiração 8-bit continua
-valendo pelas restrições que importam de verdade pro jogo (resolução
-lógica, sprites 16×16, upscale integer, color cycling), não pela contagem
-exata de cores.
+paleta fixa. Em 2026-07-05 (Sessão 6) foi decidido primeiro que recolorizar
+pro subconjunto de 54 cores do NES não valia o retrabalho; na sequência a
+referência de hardware inteira mudou de NES pra **SNES/Neo Geo** — o
+alvo visual agora é "32-bit mas 2D" (pense Metal Slug, Castlevania:
+Symphony of the Night): paletas muito mais ricas por sprite (SNES: até
+256 cores em tela a partir de paleta de 32.768; Neo Geo: até 4096 em tela
+a partir de 65.536), sombreamento em gradiente dentro do próprio pixel
+art, não só blocos de cor sólida como no visual NES anterior.
 
-**Critério testável**: nenhum — pendência fechada como "não é meta do
-jogo". A barra de qualidade visual real está em §2.2/§2.3.
+Isso muda o padrão de qualidade de asset: um tile/sprite bom agora usa
+várias tonalidades da mesma cor pra sugerir volume/luz (SNES/Neo Geo de
+verdade fazem isso), não 1-2 tons chapados por elemento. **Pendência
+real**: o tileset atual (OpenGameArt "Platformer Tileset 16x16", ver
+ASSETS.md) é estilo NES simples/chapado — não bate com esse alvo mais
+rico. Precisa ser trocado por um tileset com mais profundidade de cor e
+sombreamento antes de fechar a barra de qualidade visual desta seção.
+
+**Critério testável**: um tile de chão/parede do jogo, olhado de perto,
+mostra pelo menos 3-4 tons da mesma cor (não só contorno + preenchimento
+sólido) — hoje o tileset atual não bate nesse critério, então a
+pendência continua aberta.
 
 ### 2.2 Truques de hardware como geradores de variedade
 
@@ -145,7 +155,8 @@ jogo". A barra de qualidade visual real está em §2.2/§2.3.
 - **Clima/hora**: neblina, chuva, entardecer como modificadores visuais
   ortogonais ao tema — mesmo tema, atmosferas diferentes.
 - **Parallax de múltiplas camadas** (mínimo 3 camadas de fundo) — sem
-  isso o jogo parece flat/protótipo, não 8-bit de verdade.
+  isso o jogo parece flat/protótipo, não com a profundidade esperada de
+  um visual estilo SNES/Neo Geo.
 
 **Critério testável**: toda fase tem parallax de no mínimo 3 camadas e
 pelo menos um efeito de color cycling visível nos primeiros 10 segundos.
@@ -166,24 +177,35 @@ todos vêm de biblioteca curada com licença registrada em `ASSETS.md`.
 
 ### 3.1 Biblioteca curada por mood
 
-Faixas CC0 (chiptune genuíno, 4 canais) escolhidas manualmente por mood
-(aventura, perigo, mistério, final) pra cada fase — implementado na
-Sessão 6 (`src/config/music.ts`, `Mood`, licenças em `ASSETS.md`). Todas
-as 4 faixas são de Juhani Junkala (OpenGameArt, CC0). `LEVEL_1` usa mood
-`aventura`.
+Faixas CC0 escolhidas manualmente por mood (aventura, perigo, mistério,
+final) pra cada fase — implementado na Sessão 6 (`src/config/music.ts`,
+`Mood`, licenças em `ASSETS.md`), com a referência de hardware ainda em
+NES (2 pulse + 1 triangle + 1 noise, faixas "chiptune" de Juhani Junkala).
 
-**Critério testável**: toda faixa usada respeita a restrição de canais do
-hardware (2 pulse + 1 triangle + 1 noise) — nada de faixas "8-bit style"
-que na verdade usam síntese moderna disfarçada. **Pendente**: isso exige
-ouvir a faixa (não dá pra confirmar só lendo o arquivo) — falta playtest
-manual antes de considerar o critério atendido (ver ROADMAP.md Sessão 6).
+Com a mudança de alvo visual pra SNES/Neo Geo em 2026-07-05, a restrição
+de canais do NES deixou de fazer sentido como critério — SNES usa síntese
+por amostra (SPC700, 8 canais ADPCM) e Neo Geo usa FM real (YM2610),
+ambos soando mais próximos de instrumento de verdade do que onda
+quadrada pura. **Pendência real**: as 4 faixas atuais são explicitamente
+"chiptune"/8-bit no nome e na textura sonora (pack "Chiptune Adventures")
+— provavelmente simples demais pro novo alvo. Precisa reavaliar se
+continuam servindo (ao menos como mood temporário) ou se a biblioteca
+também precisa ser re-curada com faixas de estilo 16/32-bit
+(instrumentação mais rica, menos "bipe" puro).
+
+**Critério testável**: ouvindo a faixa sem ver o nome do arquivo, ela
+soa mais parecida com trilha de SNES/Neo Geo (instrumentos reconhecíveis,
+camadas de som) do que com um jingle de 8 bits puro. Ainda não avaliado
+— falta playtest manual (ver ROADMAP.md Sessão 6).
 
 ### 3.2 Composição própria (opcional, futuro)
 
 Se fizer sentido depois, compor trilha própria via Tone.js a partir de
-uma partitura simples: melodia (pulse 1), harmonia (pulse 2), baixo
-(triangle), percussão (noise). Estrutura obrigatória: A-B-A ou A-A-B-A
-(forma reconhecível, nunca stream aleatório de notas).
+uma partitura simples: melodia, harmonia, baixo, percussão — sem a
+limitação de canais do NES (o modelo pulse/pulse/triangle/noise não vale
+mais pro alvo SNES/Neo Geo), mas ainda com poucas vozes simultâneas pra
+manter leve. Estrutura obrigatória: A-B-A ou A-A-B-A (forma reconhecível,
+nunca stream aleatório de notas).
 
 **Critério testável**: uma pessoa consegue cantarolar o tema principal
 depois de ouvir uma vez — ou seja, existe motivo melódico repetido, não
