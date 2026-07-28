@@ -1,0 +1,71 @@
+{
+  "rounds": [
+    {
+      "n": 0,
+      "hero": "out/rounds/r0_hero.png",
+      "note": "baseline harness"
+    },
+    {
+      "n": 1,
+      "hero": "out/rounds/r1_hero.png",
+      "note": "form, rot, lighting land"
+    },
+    {
+      "n": 2,
+      "hero": "out/rounds/r2_hero.png",
+      "note": "sRGB encode fixed; staged background, rolled camera"
+    },
+    {
+      "n": 3,
+      "hero": "out/rounds/r3_hero.png",
+      "note": "guard, steel, pommel land; rot now the loudest fault"
+    },
+    {
+      "n": 4,
+      "hero": "out/rounds/r4_hero.png",
+      "note": "light cut 10x; rot desaturated; real speculars appear"
+    }
+  ],
+  "pieces": {
+    "p1": {
+      "status": "fail",
+      "round": 2,
+      "gap": "Parry hooks are the wrong idea, not badly sized \u2014 any bilateral widening within a blade-width of the guard reads as a second guard at any scale. Delete them and reclaim the length."
+    },
+    "p2": {
+      "status": "fail",
+      "round": 3,
+      "gap": "Anisotropy is faked with normal waviness \u2014 structurally wrong, reads as a faceted mirror close up. Real fix now unblocked by the new Surf fields."
+    },
+    "p3": {
+      "status": "fail",
+      "round": 4,
+      "gap": "Chroma is tamed and value range opened, but the dark end went so neutral it stops reading as oxide at all. Coverage still absent from the upper blade."
+    },
+    "p4": {
+      "status": "fail",
+      "round": 3,
+      "gap": "Entire sculpt is invisible: the rot overwrites every material channel. Proven by adding a full wear mask and getting a pixel-identical render."
+    },
+    "p5": {
+      "status": "fail",
+      "round": 3,
+      "gap": "Rescued from a killed session before review. Sets no wear mask yet, so the rot will erase its fittings."
+    },
+    "p6": {
+      "status": "fail",
+      "round": 3,
+      "gap": "Gem silhouette is chewed by rot displacement, masked rather than fixed by fading emission over the girdle. gemSDF now exposed so the rot can exempt it."
+    },
+    "p7": {
+      "status": "fail",
+      "round": 4,
+      "gap": "Specular population now real (0.8% >0.90), but overshot into darkness \u2014 70.7% shadow against a 45-65% target. Diffuse level is the remaining hot path."
+    },
+    "p8": {
+      "status": "fail",
+      "round": 4,
+      "gap": "Desaturation test now passes and the ground plane exists, but the shaft does not yet read as a beam and the contact shadow is not legible."
+    }
+  }
+}
