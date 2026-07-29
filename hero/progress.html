@@ -189,7 +189,7 @@
     <td class="pn"><span class="sig">P2</span>Blade material</td>
     <td><span class="tag">reworking</span></td>
     <td class="rd">03</td>
-    <td class="gap">Anisotropy is faked with normal waviness — structurally wrong, reads as a faceted mirror close up. Real fix now unblocked by the new Surf fields.</td>
+    <td class="gap">Anisotropy fields now exist and are implemented in the lighting BRDF, but this module still leaves aniso=0 and sets no wear mask. Both unexercised.</td>
   </tr>
 <tr class="fail">
     <td class="pn"><span class="sig">P3</span>The Rot</td>
@@ -201,19 +201,19 @@
     <td class="pn"><span class="sig">P4</span>Crossguard</td>
     <td><span class="tag">reworking</span></td>
     <td class="rd">03</td>
-    <td class="gap">Entire sculpt is invisible: the rot overwrites every material channel. Proven by adding a full wear mask and getting a pixel-identical render.</td>
+    <td class="gap">Sculpt survives better now that the rot is desaturated, but still sets no s.wear, and roof steps cut at 0.012-0.015 remain below the ~0.03 the rot displacement erases.</td>
   </tr>
 <tr class="fail">
     <td class="pn"><span class="sig">P5</span>Grip</td>
     <td><span class="tag">reworking</span></td>
     <td class="rd">03</td>
-    <td class="gap">Rescued from a killed session before review. Sets no wear mask yet, so the rot will erase its fittings.</td>
+    <td class="gap">Rescued from a killed session and never independently reviewed. Sets no wear or aniso despite the wrap having a real fibre direction.</td>
   </tr>
 <tr class="fail">
     <td class="pn"><span class="sig">P6</span>Pommel</td>
     <td><span class="tag">reworking</span></td>
     <td class="rd">03</td>
-    <td class="gap">Gem silhouette is chewed by rot displacement, masked rather than fixed by fading emission over the girdle. gemSDF now exposed so the rot can exempt it.</td>
+    <td class="gap">gemSDF is exposed and the rot now exempts the core, but the emission-fade hack that masked the ragged girdle is still in place, and no wear mask is set.</td>
   </tr>
 <tr class="fail">
     <td class="pn"><span class="sig">P7</span>Lighting</td>

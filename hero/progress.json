@@ -45,7 +45,7 @@
     "p2": {
       "status": "fail",
       "round": 3,
-      "gap": "Anisotropy is faked with normal waviness \u2014 structurally wrong, reads as a faceted mirror close up. Real fix now unblocked by the new Surf fields."
+      "gap": "Anisotropy fields now exist and are implemented in the lighting BRDF, but this module still leaves aniso=0 and sets no wear mask. Both unexercised."
     },
     "p3": {
       "status": "fail",
@@ -55,17 +55,17 @@
     "p4": {
       "status": "fail",
       "round": 3,
-      "gap": "Entire sculpt is invisible: the rot overwrites every material channel. Proven by adding a full wear mask and getting a pixel-identical render."
+      "gap": "Sculpt survives better now that the rot is desaturated, but still sets no s.wear, and roof steps cut at 0.012-0.015 remain below the ~0.03 the rot displacement erases."
     },
     "p5": {
       "status": "fail",
       "round": 3,
-      "gap": "Rescued from a killed session before review. Sets no wear mask yet, so the rot will erase its fittings."
+      "gap": "Rescued from a killed session and never independently reviewed. Sets no wear or aniso despite the wrap having a real fibre direction."
     },
     "p6": {
       "status": "fail",
       "round": 3,
-      "gap": "Gem silhouette is chewed by rot displacement, masked rather than fixed by fading emission over the girdle. gemSDF now exposed so the rot can exempt it."
+      "gap": "gemSDF is exposed and the rot now exempts the core, but the emission-fade hack that masked the ragged girdle is still in place, and no wear mask is set."
     },
     "p7": {
       "status": "fail",
