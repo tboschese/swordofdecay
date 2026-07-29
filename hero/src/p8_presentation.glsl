@@ -115,8 +115,8 @@ vec3 p8_key(){ return normalize(vec3(-0.55, 0.48, 0.68)); }
 float p8_vig(vec2 uv){
   vec2  vq = (uv + P8_SHIFT*0.55) * vec2(0.98, 1.10);
   float r  = length(vq);
-  return (1.0 - smoothstep(0.30, 0.86, r)*0.52)
-       * (1.0 - smoothstep(0.50, 1.08, r)*0.36);
+  return (1.0 - smoothstep(0.26, 0.86, r)*0.62)
+       * (1.0 - smoothstep(0.48, 1.08, r)*0.46);
 }
 
 // Soft ceiling on the environment, in SCENE-LINEAR, applied to the miss path
@@ -126,8 +126,8 @@ float p8_vig(vec2 uv){
 // of the background range instead of clipping it — which also keeps every
 // background pixel under measure.mjs's subject threshold, so the bbox / axis /
 // proportion numbers downstream stay meaningful.
-const float P8_BG_KNEE = 0.0138;
-const float P8_BG_CAP  = 0.0172;
+const float P8_BG_KNEE = 0.0560;
+const float P8_BG_CAP  = 0.0820;
 vec3 p8_bgCeil(vec3 c, vec2 uv){
   // Partial, not full, compensation: ACES is superlinear through this range, so
   // dividing the scene-linear cap by the falloff outright overshoots on screen.
@@ -155,30 +155,44 @@ vec3 p8_bgCeil(vec3 c, vec2 uv){
 //   4. there is dust in it, streaked ALONG the beam. Isotropic noise reads as
 //      cloud; noise stretched down the axis reads as rays.
 //
-// Geometry: 37 deg off vertical against the blade's 12, entering at the right
+// Geometry: 45 deg off vertical against the blade's 15, entering at the right
 // edge and raking down-left to land exactly on the floor pool. The two lines
-// cross at s=(-0.17,-0.46) — the contact point — so the beam and the blade open
+// cross at s=(-0.20,-0.40) — the contact point — so the beam and the blade open
 // into a V whose vertex is where the weapon meets the ground, and the beam
 // explains why that patch of stone is lit.
-const vec2 P8_BEAM_C = vec2(0.100, -0.100);
-float p8_shaft(vec2 s){
-  vec2 q = p8_rot(s - P8_BEAM_C, radians(45.0));
+//
+// ROUND 3: two lobes, not one. A single bar of light is ambiguous; two parallel
+// bars of unequal width are unmistakably a window with a mullion in it, and
+// that is the cheapest piece of off-frame ARCHITECTURE available — it tells you
+// what kind of room this is without drawing the room.
+const vec2  P8_BEAM_C = vec2(0.100, -0.100);
+const float P8_BEAM_A = 45.0;
+
+float p8_beam(vec2 s, vec2 ctr, float wk){
+  vec2 q = p8_rot(s - ctr, radians(P8_BEAM_A));
 
   // (2) asymmetric cross-section; (1)+(3) spread and decay along the length.
   float spread = smoothstep(0.55, -0.45, q.y);          // 0 at source, 1 far
-  float wHard  = 0.027 + 0.038*spread;
-  float wSoft  = 0.056 + 0.122*spread;
+  float wHard  = (0.027 + 0.038*spread)*wk;
+  float wSoft  = (0.056 + 0.122*spread)*wk;
   float wq     = (q.x > 0.0) ? wHard : wSoft;
   float band   = exp(-(q.x*q.x)/(2.0*wq*wq));
 
   // No taper at the top: the beam leaves through the frame edge at full value.
-  float run  = smoothstep(-0.56, -0.14, q.y)
-             * mix(0.40, 1.0, smoothstep(-0.34, 0.46, q.y));
+  float run  = smoothstep(-0.70, -0.16, q.y)
+             * mix(0.54, 1.0, smoothstep(-0.34, 0.46, q.y));
 
   // (4) dust: high frequency across the beam, low along it => striations.
   float ray  = fbm(vec3(q.x*17.0, q.y*1.9, 0.0), 3);
   float mote = fbm(vec3(s*5.4, 2.3), 3);
   return band*run*(0.26 + 0.92*ray)*(0.66 + 0.54*mote);
+}
+
+float p8_shaft(vec2 s){
+  // Companion lobe offset across the beam axis, into the empty lower-right
+  // quadrant, narrower and dimmer — the light past the mullion.
+  return p8_beam(s, P8_BEAM_C, 1.0)
+       + 0.46*p8_beam(s, P8_BEAM_C + vec2(0.1167, -0.1167), 0.62);
 }
 
 // Ambient wash. NOT a halo — round 1 centred a radial glow at s=(0.02,0.02),
@@ -209,19 +223,23 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
   // right and falling to near-black in the lower left. Value, not hue: this is
   // a plain luminance ramp wearing a faint slate tint.
   float dw = smoothstep(-0.55, 0.55, 0.62*s.x + 0.78*s.y);
-  vec3  c  = p8_air(mix(0.00395, 0.00495, dw));
-  c += p8_air(0.00130) * p8_halo(s);
+  vec3  c  = p8_air(mix(0.00330, 0.01080, dw));
+  c += p8_air(0.00260) * p8_halo(s);
 
   // Distance haze, one-sided ABOVE the horizon only. The far ground has to
   // terminate against something brighter than itself or it is not an edge, and
   // keeping the haze off the ground side keeps the break sharp.
-  float hz = exp(-(rd.y*rd.y)/(2.0*0.055*0.055)) * step(-0.0005, rd.y);
-  c += p8_air(0.00620) * hz * (0.40 + 0.90*p8_halo(s));
+  float hz = exp(-(rd.y*rd.y)/(2.0*0.030*0.030)) * step(-0.0005, rd.y);
+  c += p8_air(0.02100) * hz * (0.40 + 0.90*p8_halo(s));
 
   // -- the shaft -------------------------------------------------------------
-  float sh = p8_shaft(s);
-  c += p8_air(0.01000) * sh;
-  c += p8_warm(0.00260) * sh*sh;   // rot-ochre where the beam is densest
+  // Evaluated here, ADDED after the floor. The beam is a volume, not a backdrop:
+  // if the ground overwrites it, the wedge stops dead at the horizon and reads
+  // as a flat gradient. Adding it last puts the lit air in FRONT of the stone,
+  // which is what carries the beam across the horizon and visually lands it in
+  // the floor pool.
+  float sh   = p8_shaft(s);
+  float airD = 1.0;              // how much lit air lies in front of this pixel
 
   // -- flagstone floor -------------------------------------------------------
   float fy = p8_floorY();
@@ -239,15 +257,20 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
       // outgrows the cell. Derived from uRes, so it is correct at any output
       // size and any supersample factor.
       float fw   = (ro.y - fy) / (p8_focal()*uRes.y*max(rd.y*rd.y, 1e-7));
-      float det  = smoothstep(0.42, 0.06, fw);
+      float det  = smoothstep(0.30, 0.05, fw);
 
       vec2  w    = worley(vec3(fp.x*1.15, 0.0, fp.z*1.15));
-      float slab = smoothstep(0.015, 0.130, w.y - w.x);       // mortar seams
-      float grit = 0.80 + 0.34*fbm(vec3(fp.x*2.4, 0.0, fp.z*2.4), 3);
+      float slab = smoothstep(0.020, 0.300, w.y - w.x);       // mortar seams
+      float grit = 0.82 + 0.30*fbm(vec3(fp.x*2.4, 0.0, fp.z*2.4), 3);
       // Shallow contrast on purpose. At this camera height one pixel already
       // spans most of a flagstone; a 5:1 seam-to-face ratio does not read as
       // stone from here, it reads as scratches raked across the frame.
-      float surf = mix(0.94, grit*mix(0.66, 1.06, slab), det);
+      // Slab-to-slab tonal variation carries the stonework, not the seams. Seen
+      // this close to edge-on a flagstone grid projects to long lines running at
+      // the vanishing point, so a high-contrast mortar network rakes across the
+      // frame as scratches; broad per-area tone compresses into stone instead.
+      float tone = 0.74 + 0.52*fbm(vec3(fp.x*0.85, 0.0, fp.z*0.85), 2);
+      float surf = mix(0.94, grit*tone*mix(0.80, 1.06, slab), det);
 
       // Light pool: physical falloff about the weapon, shaped in screen space
       // so the frame corners stay black.
@@ -282,13 +305,20 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
       // The ember bounce is folded INTO the pool rather than added on top, so
       // the warm note costs value it already has instead of extra brightness.
       vec3 poolCol = mix(vec3(0.9760, 0.9953, 1.1173), vec3(1.4020, 0.9253, 0.5608), 0.34);
-      vec3 stone = (p8_stone(0.00520) + poolCol*(0.02450*pool*occ)) * surf;
+      vec3 stone = (p8_stone(0.01000) + poolCol*(0.05600*pool*occ)) * surf;
 
       float fog  = exp(-max(tf - 12.0, 0.0)*0.075);
       float edge = smoothstep(0.0, 0.018, -rd.y);
-      c = mix(c, stone, clamp(fog*edge, 0.0, 1.0));
+      float km   = clamp(fog*edge, 0.0, 1.0);
+      c = mix(c, stone, km);
+      // Near ground has little air in front of it; the far ground has a lot.
+      airD = mix(1.0, clamp(tf/16.0, 0.30, 1.0), km);
     }
   }
+
+  // -- the beam, in front of everything --------------------------------------
+  c += p8_air(0.06200) * sh * airD;
+  c += p8_warm(0.01400) * sh*sh * airD;   // rot-ochre where the beam is densest
 
   // -- mottling so nothing is a dead ramp ------------------------------------
   c *= 0.84 + 0.32*fbm(vec3(s*6.0, 1.7), 4);
@@ -334,15 +364,15 @@ vec3 applyAtmosphere(vec3 col, vec3 ro, vec3 rd, float d, bool hit){
     // near-uniform lift that seats the steel in the room rather than a depth
     // ramp — the sword is far too shallow in Z for real distance haze.
     float f = 1.0 - exp(-max(d - 6.0, 0.0)*0.030);
-    vec3  haze = p8_air(0.00360)
-               + p8_air(0.01500)*p8_shaft(s)
-               + p8_air(0.00300)*p8_halo(s);
+    vec3  haze = p8_air(0.00900)
+               + p8_air(0.07000)*p8_shaft(s)
+               + p8_air(0.00900)*p8_halo(s);
     col = mix(col, haze, clamp(f, 0.0, 1.0));
   }
 
   // Spores catch the shaft; they are near-invisible out in the dark corners.
   float lit = 0.18 + 1.55*p8_shaft(s) + 0.55*p8_halo(s);
-  col += p8_air(0.00260) * min(p8_motes(ro, rd, hit ? d : 1e4) * lit, 1.5);
+  col += p8_air(0.00900) * min(p8_motes(ro, rd, hit ? d : 1e4) * lit, 1.6);
 
   // The environment — background plus the spores drifting in it — sits under
   // one ceiling. Only the miss path: motes crossing the weapon belong to the

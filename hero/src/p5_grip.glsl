@@ -40,6 +40,8 @@
 #define P5_PJF  3.7     // ...and its frequency, in cycles over the wrap
 #define P5_HW   0.0108  // the strand's own half-width — a CONSTANT
 #define P5_HT   0.0082  // ...and its height above the core
+#define P5_OVW  0.34    // overlap: how much further the riding-over edge reaches
+#define P5_OVH  0.50    // ...and how much higher it stands than the tucked edge
 
 // ------------------------------------------------------------- extents ------
 float p5_topY(){ return -0.040; }
@@ -135,8 +137,22 @@ void p5_wrap(vec3 q, out float v, out float f, out float sk, out float cr,
   // shows up in life: in the GAP between turns. It only narrows where turns
   // crowd hard enough to squeeze it.
   float ten = 0.90 + 0.20*p5_tension(v);
-  A = min(P5_HW*ten, sp*0.47)*intact;   // half-width across the strand
-  B = P5_HT*ten*intact;                 // height standing off the core
+
+  // THE OVERLAP. A wound strap is not laid edge to edge — each turn is hauled
+  // down partly ON TOP of the one before it, so its section is asymmetric: one
+  // edge is a LIP standing proud and overhanging, the other is TUCKED under
+  // its neighbour. Skewing width and height together by sk does exactly that,
+  // and it changes what the line between two turns IS: not the floor of a
+  // symmetric groove (a corrugated pipe, which is what was here before) but
+  // the shadow under an overhang. That is the one cue a milled thread can
+  // never produce. The turns also stay countable, which the old symmetric
+  // profile could only manage by keeping the overlap tiny: the step in HEIGHT
+  // between a lip and the tucked edge beside it holds the dark line even where
+  // the strand now runs right over its neighbour.
+  float wid = 1.0 + P5_OVW*sk;                 // reaches further, on the lip side
+  float hgt = max(1.0 + P5_OVH*sk, 0.26);      // ...and stands higher there
+  A = min(P5_HW*ten*wid, sp*0.62)*intact;      // half-width across the strand
+  B = P5_HT*ten*hgt*intact;                    // height standing off the core
 }
 
 // ------------------------------------------------------------- fittings -----
@@ -186,16 +202,12 @@ float sdGrip(vec3 p){
   // --- the strand: an elliptical tube swept along the helix, lying ON the
   //     core. Wide across, low in height: a strap pulled down, not a rope.
   //
-  //     The section is SHEARED slightly, so the strand climbs across its own
-  //     width and one edge rides a little over its neighbour: a perfectly
-  //     symmetric bump repeated down a cylinder is a corrugated pipe. The shear
-  //     is kept small on purpose — push it far enough to really overlap and the
-  //     high edge of one turn meets the low edge of the next with no crease
-  //     between them, the dark line disappears, and the turns stop being
-  //     countable, which costs more than the overlap buys.
-  float Rc = cr + B*(0.30 + 0.16*sk);
+  //     The section is ASYMMETRIC — see p5_wrap. A and B are already skewed by
+  //     sk, so the centreline lift has to be skewed with them or the tucked
+  //     edge would drop below the core instead of sitting on it.
+  float Rc = cr + B*(0.34 + 0.30*sk);
   float e  = length(vec2((rho - Rc)/max(B, 1e-5), f/max(A, 1e-5)));
-  float cord = (e - 1.0)*B;            // rescaled by the smaller axis: safe
+  float cord = (e - 1.0)*min(A, B);    // rescaled by the smaller axis: safe
   cord = max(cord, abs(q.y - 0.5*(p5_wrapT() + p5_wrapB()))
                    - 0.5*(p5_wrapT() - p5_wrapB()));
 
@@ -234,10 +246,17 @@ float sdGrip(vec3 p){
   band = min(band, p5_ring(q, by + P5_BANDH - 0.0030, 0.0442, 0.0042));
   d = min(d, band);
 
-  return d * (0.78/P5_ZS);
+  // The skewed section makes A, B and Rc functions of position, so the cord
+  // term's gradient exceeds one by more than the old symmetric profile's did.
+  return d * (0.72/P5_ZS);
 }
 
 // ============================================================== material ====
+// 1 inside the slab [a,b], 0 outside, softened by e.
+float p5_slab(float y, float a, float b, float e){
+  return smoothstep(a - e, a + e, y)*smoothstep(b + e, b - e, y);
+}
+
 // Which fitting are we on? 0 = leather, 1 = bronze.
 float p5_metalMask(float y){
   float top = p5_topY(), bot = p5_botY();
@@ -278,6 +297,14 @@ Surf shadeGrip(vec3 p, vec3 n){
   float undc = smoothstep(0.52, 0.94, -sk)*crease;
   float bare   = clamp((1.0 - intact)*1.35, 0.0, 1.0)*(1.0 - crown*0.75);
 
+  // Which fittings are the fluted cones (as opposed to the plain bands), and
+  // where the flutes' standing ribs are. The cut REMOVES radius where
+  // cos(8phi) is +1, so the proud rib is the -1 side.
+  float cone = m*clamp(smoothstep(top - 0.086, top - 0.078, p.y)
+                     + smoothstep(p5_botY() + 0.052, p5_botY() + 0.042, p.y), 0.0, 1.0);
+  vec3  ephi = normalize(vec3(-p.z, 0.0, p.x + 1e-5));
+  float rib  = 0.5 - 0.5*cos(8.0*phi);
+
   // --- leather --------------------------------------------------------------
   float grain = fbm(vec3(p.x*80.0, p.y*150.0, p.z*80.0), 3);
   // Stretched hard in xz, fine in y: reads as the twist striations running
@@ -294,10 +321,16 @@ Surf shadeGrip(vec3 p, vec3 n){
                    1.0 - smoothstep(0.0, 0.21, abs(u - 0.71)));
   float polish = crown*hand;
 
-  vec3 cDirt = vec3(0.030, 0.023, 0.019);   // grime packed into the crease
-  vec3 cCord = vec3(0.158, 0.114, 0.082);   // the strand body
-  vec3 cWorn = vec3(0.255, 0.186, 0.130);   // hand-burnished crest
-  vec3 cCore = vec3(0.115, 0.093, 0.068);   // dry exposed core
+  // VALUE. These were roughly twice as light, and measured on the render the
+  // wrap came out at a mean of 120/255 — the same value as the bronze beside
+  // it. Two materials at one value is no material hierarchy at all, whatever
+  // their roughness does, and the point of the wrap is to be the dark mass the
+  // one clean fitting reads against. Old dark leather is genuinely this
+  // black: a 0.08 albedo, and everything you see on it is specular.
+  vec3 cDirt = vec3(0.018, 0.014, 0.012);   // grime packed into the crease
+  vec3 cCord = vec3(0.082, 0.058, 0.041);   // the strand body
+  vec3 cWorn = vec3(0.146, 0.104, 0.072);   // hand-burnished crest
+  vec3 cCore = vec3(0.062, 0.050, 0.037);   // dry exposed core
 
   vec3 base = mix(cDirt, cCord, smoothstep(0.04, 0.72, hn));
   base = mix(base, cWorn, polish*0.66);
@@ -318,7 +351,12 @@ Surf shadeGrip(vec3 p, vec3 n){
   // Leather response: broad and soft, and floored well above metal roughness
   // so it can never produce a tight highlight. That floor is what keeps the
   // material hierarchy legible once the colour is taken away.
-  float rgh = mix(0.88, 0.54, crown) - 0.13*polish + 0.11*(grain - 0.5)
+  // 0.54 on the crest was a gloss, not a sheen — under a 4.20 environment it
+  // gave the turns hard bright arcs that read as stacked metal washers. The
+  // rubric's word for leather is "a soft sheen between the two": the lobe has
+  // to stay BROAD, and the crest earns its light by being brighter, not by
+  // being tighter.
+  float rgh = mix(0.92, 0.64, crown) - 0.09*polish + 0.11*(grain - 0.5)
             + 0.06*(strand - 0.6);
   rgh = mix(rgh, 0.94, crease*0.75);
   rgh = mix(rgh, 0.93, fray*0.55);
@@ -337,17 +375,20 @@ Surf shadeGrip(vec3 p, vec3 n){
   // timid brown bronze lands on the same dead grey-green as mouldy leather and
   // reopens the black gap this module exists to close. Hence a real gold-family
   // F0: gilt bronze, which is period-correct for a fitting anyway.
+  // NOTE ON THE BRIGHTNESS. This used to be a near-white gilt — F0 (0.98,
+  // 0.70, 0.34) — and the header's argument for it was that p3 replaced ~92%
+  // of it with oxide anyway, so only a scream would survive the mix. That
+  // argument is now void: s.wear (below) holds the rot off the flanges and the
+  // band, so what is written here is very nearly what is rendered. Left as it
+  // was, the four fittings came out as bars of blown highlight stacked up the
+  // handle, four rival focal points against one relic core. Aged gilt bronze,
+  // read off the real thing: warm, dark, and nowhere near a mirror.
   float mg = fbm(p*130.0, 3);
-  vec3 mcol = vec3(0.980, 0.700, 0.340)*(0.62 + 0.68*mg);
-
-  // Which fittings are the fluted cones (as opposed to the plain bands).
-  float cone = m*clamp(smoothstep(top - 0.086, top - 0.078, p.y)
-                     + smoothstep(p5_botY() + 0.052, p5_botY() + 0.042, p.y), 0.0, 1.0);
-  vec3 ephi = normalize(vec3(-p.z, 0.0, p.x + 1e-5));
+  vec3 mcol = vec3(0.640, 0.462, 0.248)*(0.80 + 0.34*mg);
 
   // Gilding survives on the standing ribs of the flutes and has been rubbed
   // out of the grooves, which is the direction wear actually runs.
-  mcol *= 1.0 - 0.30*cos(8.0*phi)*cone;
+  mcol *= 1.0 + 0.34*(rib - 0.5)*cone;
 
   // Hierarchy between the fittings. The mid band is the piece the palm has been
   // rubbing for a century: its gilding is worn back to plain bronze, but it is
@@ -355,12 +396,76 @@ Surf shadeGrip(vec3 p, vec3 n){
   // gilt ends win on albedo. Four equally hot bands would give the eye four
   // places to land, which is the same as giving it none.
   float mPol = smoothstep(0.19, 0.10, abs(u - P5_BANDU));
-  float mRgh = mix(0.54, 0.19, mPol) + 0.30*(mg - 0.5);
+  float mRgh = mix(0.58, 0.30, mPol) + 0.16*(mg - 0.5);
 
   s.albedo = mix(base, mcol*mix(1.0, 0.62, mPol), m);
   s.metal  = m;
   s.spec   = mix(spc, 0.60, m);
-  s.rough  = mix(rgh, clamp(mRgh, 0.15, 0.72), m);
+  s.rough  = mix(rgh, clamp(mRgh, 0.22, 0.76), m);
+
+  // --- WEAR ------------------------------------------------------------------
+  // The half of the contract this module was not holding up. p3's field
+  // saturates across the whole hilt and applyRot then overwrites albedo,
+  // roughness and metalness — so until this is set, everything above is
+  // computed and thrown away, and the wrap renders as the pale grey-green
+  // mould colour from p3 with no leather anywhere in it. Verified directly:
+  // forcing s.wear = 1.0 turns the grip from grey rings into brown leather.
+  //
+  // The header already reasoned about WHERE the metal lives, but it had to
+  // reason about it second-hand — hoping p3's palm exemption happened to land
+  // on the mid band. This states it instead.
+  //
+  // LEATHER. A wrap is handled constantly; its high points stay burnished and
+  // its creases hold the damp. So: the crest of each turn, hardest under the
+  // two hands, and the proud lip of the overlap — which is precisely the edge
+  // that takes the rub, because it is the edge that stands out from the grip.
+  float wL = crown*(0.68 + 0.32*hand);
+  wL = max(wL, lip*(0.72 + 0.28*hand));       // the overhanging lip
+  wL = mix(wL, wL*0.16, crease*(1.0 - lip));  // the shared crease floor
+  wL = mix(wL, 0.02, undc*0.90);              // tucked under: never touched
+  wL *= 1.0 - 0.82*bare;                      // the parted run let water in
+  wL *= 1.0 - 0.55*fray;                      // cut ends wick and stay damp
+
+  // BRONZE. The proud collars and the scribed beads are knocked clean by every
+  // draw from the scabbard; the mid band lives in the palm and is the cleanest
+  // thing on the hilt; the lower ring sits on the edge of that and comes out
+  // half-eaten. The fluted cones stay largely drowned — the ends of a grip are
+  // where water runs to and stands — but their standing ribs keep enough metal
+  // to give the corroded cone a light/dark rhythm that is now carried by
+  // MATERIAL as well as by the normal.
+  float by = p5_bandY(), ry = p5_ringY(), bot = p5_botY();
+  float flT = p5_slab(p.y, top - 0.108, top - 0.076, 0.0040);
+  float flB = p5_slab(p.y, bot + 0.038, bot + 0.070, 0.0040);
+  float bnd = p5_slab(p.y, by - P5_BANDH, by + P5_BANDH, 0.0035);
+  float rng = p5_slab(p.y, ry - P5_RINGH, ry + P5_RINGH, 0.0030);
+  // ...except the groove turned down the middle of the band, which is a trap.
+  bnd *= 1.0 - 0.78*(1.0 - smoothstep(0.0018, 0.0062, abs(p.y - by)));
+  float wM = max(max(flT, flB)*0.84, max(bnd*0.97, rng*0.50));
+  wM = max(wM, cone*(0.06 + 0.50*rib));
+
+  s.wear = clamp(mix(wL, wM, m), 0.0, 1.0);
+
+  // --- ANISOTROPY ------------------------------------------------------------
+  // Both materials here have a genuine grain, and they do not share it.
+  // Leather fibre runs ALONG the strand, which is the helix tangent: the
+  // direction perpendicular to grad(turn index) on the surface. Written out,
+  // grad t = (-dturn/wl axially, 1/(TAU*rho) circumferentially), so the
+  // tangent swaps those and flips one sign. It comes out steeply
+  // circumferential — as a wrap's strand should, since it goes around the grip
+  // fifteen times and along it once.
+  float wlen = max(p5_wrapT() - p5_wrapB(), 1e-3);
+  float gy = p5_dturn(v)/wlen;
+  float gp = 1.0/(TAU*max(rho, 1e-4));
+  vec3 tStrand = normalize(ephi*gy + vec3(0.0, gp, 0.0)*1.0);
+
+  // The fittings were turned on a lathe, so their grain is circumferential —
+  // the same direction the tool travelled. The flutes were cut across that
+  // afterwards, which is exactly what destroys it, so the cones get much less.
+  s.anisoDir = normalize(mix(tStrand, ephi, m));
+  float aL = (0.26 + 0.44*crown)*(1.0 - 0.60*crease)
+           * (1.0 - 0.70*bare)*(1.0 - 0.55*fray);
+  float aM = mix(0.70, 0.20, cone*(0.55 + 0.45*(1.0 - rib)));
+  s.aniso  = clamp(mix(aL, aM, m), 0.0, 0.85);
 
   // --- relief ---------------------------------------------------------------
   // Flute shading. The cut itself has to stay shallow or the SDF stops being

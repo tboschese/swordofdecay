@@ -28,10 +28,12 @@
 
 #define P4_W   0.345   // where the quillon bar ends (terminals reach past it)
 #define P4_W0  0.345   // the value of dims().guardHalfW this profile was cut for
-#define P4_TZ  0.094   // half-thickness front-to-back at the hub
-#define P4_TA  0.048   // half-thickness out on the arms — the blade is 0.038
+#define P4_TZ  0.094   // half-thickness front-to-back at the hub block
+#define P4_TA  0.054   // half-thickness out on the arms — the blade is 0.038
                        // at its thickest, so the guard is always the heavier
                        // section wherever the two are seen together
+#define P4_LIP 0.018   // half-thickness at the blunt rim, before the chamfer
+#define P4_U0  0.014   // how far inside the outline the chamfer springs from
 
 // Every control point below is cut for guardHalfW = 0.345. If p1 retunes the
 // span, stretch x rather than let the guard drift out of proportion with the
@@ -48,6 +50,18 @@ float p4_eye(vec2 c, float hl, float r){
   float k   = inversesqrt(hx*hx + hy*hy);
   float rho = (abs(c.y)*hx + abs(c.x)*hy - hx*hy) * k;
   return max(cap, rho);
+}
+
+// CLAW: each quillon finishes turning back down toward the grip. Two tapered
+// capsules read as one thick horn without a cone primitive. These are the
+// guard's answer to the parry hooks — same idea, opposite direction, four
+// times the mass — which is what stops the two rhyming.
+// Factored out of p4_plate so shadeGuard can ask "how close is this pixel to
+// the claw ridge?" without re-deriving it — the claws are the guard's most
+// exposed convex form and carry the most wear.
+float p4_claw(vec2 s){
+  float claw = sdSegment2(s, vec2(0.336, -0.130), vec2(0.324, -0.190)) - 0.031;
+  return min(claw, sdSegment2(s, vec2(0.324, -0.188), vec2(0.300, -0.242)) - 0.016);
 }
 
 // ------------------------------------------------------------- 2D profile --
@@ -72,12 +86,7 @@ float p4_plate(vec2 a){
   vec2 t = abs(s - vec2(0.318, -0.108)) - vec2(0.036, 0.068);
   float term = length(max(t, 0.0)) + min(max(t.x, t.y), 0.0) - 0.020;
 
-  // CLAW: each quillon finishes turning back down toward the grip. Two tapered
-  // capsules read as one thick horn without a cone primitive. These are the
-  // guard's answer to the parry hooks — same idea, opposite direction, four
-  // times the mass — which is what stops the two rhyming.
-  float claw = sdSegment2(s, vec2(0.336, -0.130), vec2(0.324, -0.190)) - 0.031;
-  claw = min(claw, sdSegment2(s, vec2(0.324, -0.188), vec2(0.300, -0.242)) - 0.016);
+  float claw = p4_claw(s);
 
   // Hub: a KEYSTONE, wide under the blade and tapering down into the ferrule,
   // so the centre of the guard has a downward gesture of its own.
@@ -100,27 +109,34 @@ float p4_plate(vec2 a){
 }
 
 // Half-thickness in Z as a function of how far inside the profile we are.
-// This is where the guard gets its relief, and it is deliberately a STEPPED
-// roof, not a smooth ramp: a narrow rim chamfer, then a flat LAND, then a
-// second step up to a raised central panel. Two hard arrises follow every
-// contour — the outer silhouette AND the pierced eyes — so each one carries a
-// bright lip on the lit side and a black one opposite. A smooth chamfer at
-// this scale is erased by p3's crust; a step survives it.
-// The hub also runs much thicker than the arms, so it reads as the block that
-// takes the load and the quillons as plate hung off it.
-float p4_roof(float ax, float d2){
-  float T = mix(P4_TZ, P4_TA, smoothstep(0.045, 0.205, ax));
-  float u = max(-d2, 0.0);
-  float A = T*0.74;                                     // the land
-  float t = min(0.018 + 0.70*u, A + 0.90*max(u - 0.032, 0.0));
-  return min(t, T);
+// RE-CUT. This used to be two steps of 0.017 and 0.013 in z, plus a smooth
+// swell in x for the hub. BRIEF policy 7: p3's crater displacement is ~0.013
+// deep on a ~0.05 cell plus grain, so relief under ~0.03 is simply erased at
+// final size — all three of those were, and the guard rendered as one lump of
+// crust with no arris anywhere on it.
+//
+// So the roof is now ONE hard step of 0.036, and the hub's extra section is an
+// explicit stepped block in sdGuard rather than a swell (a swell has no arris
+// at all, so there was nothing there for the crust to fail to cover):
+//     u < 0.014          LIP      az 0.018   the blunt rim of the plate
+//     0.014 .. 0.050     CHAMFER             one 45-degree facet, 0.036 rise
+//     u > 0.050          LAND     az 0.054   the quillon spine
+//     hub block                   az 0.094   +0.040
+//     boss ring                   az 0.134   +0.040
+//     boss countersink            az 0.098   -0.036
+// Four flats, four steps, none of them under 0.036. Each step is a hard crease
+// carrying a bright lip on the lit side and a black one opposite, and the
+// flats are exactly what `s.wear` protects below.
+float p4_roof(float d2){
+  return min(P4_LIP + max(-d2 - P4_U0, 0.0), P4_TA);
 }
 
 float sdGuard(vec3 p){
   float kx = p4_kx();
-  // Safety factor: the roof makes the field non-unit in the chamfer band, and
-  // the x stretch inflates it further when the guard is narrowed.
-  float sc = 0.72*min(kx, 1.0);
+  // Safety factor: the roof's chamfer now runs at a true 45 degrees, so the
+  // field `az - roof` overestimates by up to sqrt(2) there; the x stretch
+  // inflates it further when the guard is narrowed.
+  float sc = 0.70*min(kx, 1.0);
   vec3  ps = vec3(p.x/kx, p.y, p.z);
 
   // Conservative bound. sdGuard runs 220x per camera ray plus every shadow and
@@ -132,7 +148,7 @@ float sdGuard(vec3 p){
   float ax = abs(ps.x), az = abs(ps.z);
 
   float d2 = p4_plate(ps.xy);
-  float th = p4_roof(ax, d2);
+  float th = p4_roof(d2);
 
   // Extrude the profile through the roof. Small radius keeps the arrises from
   // reading as razor-thin CG creases.
@@ -150,17 +166,28 @@ float sdGuard(vec3 p){
   float fer = sdRoundBox(vec3(ps.x, ps.y + 0.186, ps.z), vec3(0.050, 0.022, 0.048), 0.014);
   d = min(d, min(col, fer));   // hard creases: these read as separate pieces
 
-  // RAISED BOSS: a two-step lozenge standing well proud of both hub faces. The
-  // step is the point — one chamfered shoulder catching the key and a second
-  // plateau above it gives the centre of the guard a highlight and a cast
-  // shadow of its own instead of a flat panel with a decal on it.
-  // It has to stand a full 0.04 proud of the hub face: p3 lays ~0.02 of crust
-  // over everything here, so anything shallower is simply erased.
-  vec3 lp = vec3(ps.x, ps.y + 0.008, az - P4_TZ + 0.004);
+  // HUB BLOCK — the guard's thick centre section. This used to be a smooth
+  // swell of the roof in x; a swell has no arris, so there was no edge for the
+  // crust to break over and the centre of the guard read as a mound. As an
+  // explicit solid it steps a hard 0.040 proud of the quillon land, and the
+  // keystone plane (the same one p4_plate cuts the hub with, inset) keeps it
+  // just inside the outline so the step reads all the way round.
+  float hb = sdRoundBox(vec3(ps.x, ps.y + 0.036, ps.z), vec3(0.104, 0.086, P4_TZ - 0.014), 0.014);
+  hb = max(hb, dot(vec2(ax, ps.y) - vec2(0.066, 0.060), vec2(0.98603, -0.16663)) - 0.016);
+  d = min(d, hb);
+
+  // RAISED BOSS: a lozenge standing 0.040 proud of the hub block, with a
+  // COUNTERSUNK eye 0.036 deep sunk into it — so the centre of the guard is a
+  // RING of proud metal around a recess. It was two stacked plateaus of 0.018
+  // and 0.022, both under the 0.03 floor and both erased. One step out and one
+  // step in, each 0.036+, gives two arrises where there were none, and the
+  // pairing is the whole material argument: bare knocked-clean metal on the
+  // ring, oxide pooled in the recess it surrounds.
+  vec3 lp = vec3(ps.x, ps.y + 0.030, az - P4_TZ);
   lp.xy = rot2(0.7854)*lp.xy;
-  float loz = sdRoundBox(lp, vec3(0.048, 0.048, 0.012), 0.010);
-  loz = min(loz, sdRoundBox(vec3(lp.xy, lp.z - 0.024), vec3(0.028, 0.028, 0.012), 0.008));
-  d = opSmoothUnion(d, loz, 0.014);
+  float loz = sdRoundBox(lp, vec3(0.038, 0.038, 0.032), 0.008);
+  loz = max(loz, -sdRoundBox(vec3(lp.xy, lp.z - 0.070), vec3(0.021, 0.021, 0.060), 0.006));
+  d = min(d, loz);
 
   return d*sc;
 }
@@ -190,26 +217,87 @@ Surf shadeGuard(vec3 p, vec3 n){
 
   float f = p4_forge(p);
 
+  // ---------------------------------------------------------------- WEAR --
   // FORM-DRIVEN WEAR. Noise-driven polish reads as texture; wear that follows
-  // the sculpt reads as history. Two masks, both read straight off the
-  // geometry this file built: the chamfer arrises round every contour and the
-  // pierced eyes (dp), and the raised boss and hub lands standing proud in z.
-  // Those are the surfaces a scabbard, a hand and a shield rim actually touch,
-  // and they are also the ones p3's crust holds least well.
-  float dp    = -p4_plate(vec2(p.x/p4_kx(), p.y));
-  float arris = smoothstep(0.034, 0.004, dp);
-  float proud = smoothstep(0.052, 0.098, abs(p.z));
-  float wear  = clamp(arris*0.80 + proud*0.60, 0.0, 1.0);
+  // the sculpt reads as history. Every term below is read straight off the
+  // geometry this file built, and the result goes into `s.wear` so p3 holds
+  // the crust back there (BRIEF policy 6/6b). Until this was assigned, the
+  // rot overwrote albedo/rough/metal on every camera-facing pixel of the
+  // guard and this whole material contributed nothing — proven twice with
+  // pixel-identical renders.
+  vec2  pl = vec2(p.x/p4_kx(), p.y);
+  vec2  sl = vec2(abs(pl.x), pl.y);
+  float d2 = p4_plate(pl);
+  float u  = max(-d2, 0.0);              // how deep inside the outline we are
+  float az = abs(p.z);
 
-  // The lips between hammer blows also burnish, at a much finer frequency.
+  // Z-facing FLATS vs. the walls and chamfers between them. A scabbard mouth,
+  // a palm and a shield rim sweep across the flats; they never reach a wall,
+  // and a 45-degree chamfer recedes from all of them. This is deliberately a
+  // wide smoothstep: the crust tilts the normal by up to ~25 degrees, so a
+  // narrow test would flicker, and letting a badly cratered patch lose its
+  // protection is the right answer anyway.
+  float fw = smoothstep(0.30, 0.72, abs(n.z));
+
+  // The four flats of the roof, in order of how exposed they are.
+  float onLip  = smoothstep(0.022, 0.006, u);            // blunt rim of the plate
+  float onLand = smoothstep(0.044, 0.058, u);            // quillon spine
+  float onHub  = smoothstep(0.064, 0.086, az);           // hub block face
+  float onBoss = smoothstep(0.106, 0.128, az);           // the boss ring
+  // The claws hang below the arm line: nothing is set down, dropped, leaned or
+  // dragged without these taking it first.
+  float onClaw = smoothstep(0.034, 0.006, p4_claw(sl));
+
+  // max(), not a sum — a sum saturates the whole guard to 1.0 (measured) and
+  // then p3 holds everything back equally, which is the same flat answer as
+  // holding nothing back. The point is the SPREAD.
+  float wear = max(max(onLip*0.66, onClaw*0.60),
+                   fw*max(onLand*0.48, max(onHub*0.60, onBoss*0.96)));
+
+  // --- and where nothing could ever reach. ---------------------------------
+  // Down inside the pierced eyes the bore is a shadowed slot that held water.
+  // The eye's LIP is a flat and keeps its wear; only the wall loses it.
+  float de   = p4_eye(rot2(0.2820)*(sl - vec2(0.203, -0.0744)), 0.052, 0.023);
+  float bore = smoothstep(0.022, 0.000, abs(de))*(1.0 - fw);
+  // The seams where the guard is socketed onto blade and grip: a dead crevice
+  // at both ends that no hand touches and nothing ever drained out of.
+  float seam = max(smoothstep(0.030, 0.004, abs(pl.y - 0.152)),
+                   smoothstep(0.030, 0.004, abs(pl.y + 0.210)));
+  // The countersink inside the boss ring, and every other up-facing shelf: on
+  // a vertical weapon the guard IS the horizontal surface, so this is where
+  // everything that ran down the blade stopped and sat.
+  float pool = clamp(n.y, 0.0, 1.0)*(1.0 - onBoss*fw);
+
+  wear = clamp(wear*(1.0 - 0.90*bore)*(1.0 - 0.70*seam)*(1.0 - 0.55*pool),
+               0.0, 1.0);
+  s.wear = wear;
+
+  // ANISOTROPY. Hand-forged iron has no grain worth the name and the rest of
+  // this guard is left isotropic on purpose. The ONE exception is the blunt
+  // rim: that band is draw-filed flat along the contour after forging, and a
+  // filed band genuinely stretches its highlight along the file direction.
+  // Tangent = the plate contour's own tangent, straight off its gradient.
+  vec2  ge = vec2(0.0035, 0.0);
+  vec2  gp = vec2(p4_plate(pl + ge.xy) - p4_plate(pl - ge.xy),
+                  p4_plate(pl + ge.yx) - p4_plate(pl - ge.yx));
+  s.anisoDir = normalize(vec3(-gp.y*p4_kx(), gp.x, 0.0) + vec3(1e-5, 1e-5, 0.0));
+  s.aniso    = 0.44*onLip;
+
+  // The lips between hammer blows burnish too, but only where the surface was
+  // already being rubbed — as an independent additive term (it was) this is a
+  // high-frequency craquelure laid over everything, which reads as cracked
+  // glaze, not as iron. It modulates wear; it does not create it.
   vec2  wl   = worley(p*vec3(9.0, 11.5, 9.0));
   float lip  = smoothstep(0.11, 0.0, wl.y - wl.x);
-  float burn = clamp(lip*0.55 + wear, 0.0, 1.0);
-  base = mix(base, vec3(0.205, 0.186, 0.160), burn*0.62);
+  float burn = clamp(wear*(0.80 + 0.34*lip), 0.0, 1.0);
+  base = mix(base, vec3(0.176, 0.160, 0.138), burn*0.74);
 
   s.albedo = base;
   s.metal  = 1.0;
-  s.rough  = clamp(0.74 - 0.34*burn + 0.18*(f - 0.5) - 0.10*scaleM, 0.20, 0.94);
+  // Burnished iron is the tight-highlight end of this material and the crust
+  // p3 leaves in the chamfers is the broad-scatter end; that separation is the
+  // rubric's material hierarchy, and it has to survive greyscale.
+  s.rough  = clamp(0.80 - 0.44*burn + 0.16*(f - 0.5) - 0.08*scaleM, 0.22, 0.95);
   s.ao     = 1.0 - 0.20*smoothstep(0.55, 0.05, wl.x)*(1.0 - wear*0.6);
 
   // Normal from the gradient of the forge field, projected into the tangent

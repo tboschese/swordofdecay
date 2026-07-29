@@ -24,14 +24,46 @@
 // through the patina to bare steel (f0 ~0.42). Dark blued body, bright bare
 // edge — that is how a blade stays dark and still throws a keen hot rim.
 //
-// On top of that: grinding marks stretched ALONG the blade (fine in x, long in
-// y) so the highlight frays instead of ruling a clean stripe; and a much lower-
-// frequency hand-grind WAVINESS at about 1/8 of blade length, applied as a real
-// heightfield gradient in the surface tangent frame. That waviness is most of
-// why a real blade reads as forged rather than extruded — but its amplitude is
-// the single most dangerous number in this file. Ten degrees of tilt turns the
-// blade into crumpled tinfoil; ~1.5 degrees is a forged blade.
+// ROUND 3 — THE ANISOTROPY IS NO LONGER FAKED.
+// The previous author of this file wrote that the grain was "the wrong kind of
+// fake": `Surf` only carried a scalar roughness, so a lobe that is narrow
+// ACROSS the blade and long ALONG it could not be expressed. What was there
+// instead was a low isotropic roughness on the flats plus normal waviness to
+// break it up — which at hero scale reads as a set of crisp bands that wobble,
+// not as one long soft streak. `Surf` now carries `aniso`/`anisoDir` and p7
+// implements two-axis GGX, so the lobe is stated directly:
+//
+//   flats          aniso .86   ground the length of the blade
+//   ridge roof     aniso .72   same wheel, awkward facet, same direction
+//   secondary bevel aniso .46  honed, and honed along the EDGE, not the axis
+//   apex           aniso .30   stropped nearly smooth; little grain survives
+//   fuller floor   aniso .30   sunk, never properly dressed
+//   ricasso/hooks  aniso  0    raw stock — no grain at all
+//
+// The roughness numbers below were RAISED to pay for it. Disney's aspect
+// mapping preserves ax*ay, so at aniso .86 (aspect .475) the across-blade alpha
+// is 0.475*a: feeding the old 0.196 straight in would have made the flat
+// TIGHTER across its width than it was before, which is the opposite of the
+// goal. The flats now run 0.272, which puts the across-blade lobe back at
+// about 0.19 isotropic-equivalent and stretches the along-blade lobe to about
+// 0.40 — narrow across, long along, which is the actual optics of a ground
+// flat and the thing the previous author could not say.
+//
+// Because the streak is now a real lobe, the WAVINESS FAKE has been cut from
+// 0.0070 to 0.0022: it is no longer carrying the breakup, only a trace of
+// hand-ground form. What replaces it is a slow WANDER OF THE GRAIN DIRECTION
+// (a couple of degrees, same low-frequency field) — the streak drifts instead
+// of the surface crumpling, which is what a hand-ground flat actually does.
+//
+// WEAR. `s.wear` gates p3's hold-back. Set high wherever use keeps steel
+// polished — the honed bevel, the two burnished crease hairlines, the apex and
+// the ridge crest are all proud arrises that get wiped by every draw and every
+// parry — and low in the fuller recess, which is a trench that held the water.
 // ============================================================================
+
+// A/B switches. Set P2_ANISO_GAIN to 0.0 to render the isotropic control.
+const float P2_ANISO_GAIN = 1.0;
+const float P2_WAVE_AMP   = 0.00220;
 
 // --- anisotropic grinding field ------------------------------------------
 // Fine across the blade, long along it (aspect roughly 35:1 up to 75:1).
@@ -138,14 +170,21 @@ Surf shadeBlade(vec3 p, vec3 n){
   base = mix(base, bare,       bevelM*0.52*(0.30 + 0.95*hone));
   base = mix(base, bare*1.38,  apex*0.78*(0.22 + 1.05*hone));
 
+  // The ridge crest itself — the very centreline of the blade — is the proudest
+  // arris on the flat, and every wipe of a rag runs down it.
+  float crest = exp(-(ux/0.105)*(ux/0.105)) * (1.0 - blunt);
+
   // ------------------------------------------------------------- roughness ---
-  float rough = 0.196;                          // flats: ground, not polished
-  rough = mix(rough, 0.262, ridgeM);            // ridge roof, shallower pass
-  rough = mix(rough, 0.058, bevelM);            // honed secondary bevel
+  // NOTE the flats and the ridge roof read HIGHER than round 2. That is the
+  // price of real anisotropy: the across-blade alpha is aspect*a, so the base
+  // has to come up to keep the across-width read where it was. See the header.
+  float rough = 0.272;                          // flats: ground, not polished
+  rough = mix(rough, 0.318, ridgeM);            // ridge roof, shallower pass
+  rough = mix(rough, 0.066, bevelM);            // honed secondary bevel
   rough = mix(rough, 0.440, fulM);              // fuller floor, never dressed
   rough = mix(rough, 0.505, blunt);             // ricasso / hooks, raw stock
-  rough = mix(rough, min(rough, 0.082), crease*0.80);   // burnished crease line
-  rough = mix(rough, 0.028, apex*0.90);                 // the honed apex
+  rough = mix(rough, min(rough, 0.090), crease*0.80);   // burnished crease line
+  rough = mix(rough, 0.030, apex*0.90);                 // the honed apex
 
   // The bevel gets keener toward the point — the last third took the most work.
   rough -= bevelM*(1.0 - blunt)*0.022*smoothstep(0.35, 0.95, u);
@@ -157,6 +196,56 @@ Surf shadeBlade(vec3 p, vec3 n){
   float polishVar = fbm(vec3(p.x*6.0, p.y*3.4, side*0.5 + 23.0), 3);
   rough *= 0.90 + 0.22*polishVar;
   rough = clamp(rough, 0.024, 0.78);
+
+  // ------------------------------------------------------------ anisotropy ---
+  // How much GRAIN the surface has. A blade is ground on a wheel that runs the
+  // length of it, so almost everything on the flat is strongly directional; the
+  // exceptions are surfaces that were never dressed (the ricasso, the parry
+  // hooks, the sunk fuller floor) and the apex, which is stropped until the
+  // scratches are almost gone. p3 zeroes this again under crust, and damps it
+  // under tarnish, so corroded steel loses its grain without help from here.
+  float aniso = 0.86;                          // flats: heavily directional
+  aniso = mix(aniso, 0.72, ridgeM);            // ridge roof, same wheel
+  aniso = mix(aniso, 0.46, bevelM);            // honed, finer and shorter
+  aniso = mix(aniso, 0.30, fulM);              // sunk, never properly dressed
+  aniso = mix(aniso, 0.30, apex*0.90);         // stropped nearly smooth
+  aniso = mix(aniso, 0.00, blunt);             // raw stock: no grain at all
+  // Never perfectly uniform — the grind wanders in strength as well as angle.
+  aniso *= 0.86 + 0.26*polishVar;
+  aniso = clamp(aniso*P2_ANISO_GAIN, 0.0, 0.92);
+
+  // ---- the grain DIRECTION -------------------------------------------------
+  // Blade axis for everything ground on the wheel. The secondary bevel is the
+  // exception: it is honed along the EDGE, and near the point the edge sweeps
+  // inboard hard (the profile loses 0.34 of half-width per unit of height up
+  // there), so its grain tilts with it. p7 orthogonalises against N for us.
+  float hw1  = max(bladeHalfWidth(y + 0.01), 1e-4);
+  float dhw  = (hw1 - hw)/0.01;                          // d(halfWidth)/dy
+  vec3  eDir = normalize(vec3(sign(p.x)*dhw, 1.0, 0.0)); // local edge tangent
+  vec3  gDir = normalize(mix(vec3(0.0, 1.0, 0.0), eDir, bevelM*0.85 + apex*0.15));
+
+  // Slow wander of the grain angle — a couple of degrees, driven by the same
+  // low-frequency field the waviness used to use. This is the replacement for
+  // most of the old normal waviness: the STREAK drifts, instead of the surface
+  // crumpling to fake a drifting streak.
+  float wa = (p2_wave(p.x, p.y, side) - 0.5) * 0.075 * (0.5 + 0.7*flatM);
+  gDir = normalize(gDir + vec3(wa, 0.0, 0.0));
+  s.aniso    = aniso;
+  s.anisoDir = gDir;
+
+  // ------------------------------------------------------------------ wear ---
+  // p3's rot field saturates over the heel and now reaches mid-blade, and
+  // applyRot overwrites albedo/rough/metal outright — so without this, every
+  // facet above is simply deleted wherever the crust lands. High on the proud,
+  // handled, honed geometry; near zero in the fuller trench, which is exactly
+  // where standing water sat.
+  float wr2 = clamp(apex*1.00 + bevelM*0.74 + crease*0.88 + crest*0.52, 0.0, 1.0);
+  // The same drift that stops the honed rim reading as a constant-width stroke
+  // also stops the bare-metal band doing so.
+  wr2 *= 0.52 + 0.72*hone;
+  wr2 *= 1.0 - 0.88*fulM;                      // recess: let the rot have it
+  wr2 *= 1.0 - 0.62*blunt;                     // raw stock was never polished
+  s.wear = clamp(wr2, 0.0, 1.0);
 
   // --------------------------------------------------------- micro-normal ----
   // Build the surface tangent frame so the same heightfield works on the flat,
@@ -183,7 +272,11 @@ Surf shadeBlade(vec3 p, vec3 n){
 
   // Waviness must survive on the flats and get damped on the honed bevel (it
   // was ground true) and on the raw stock (it was never ground at all).
-  float wAmp = 0.00700 * (1.0 - 0.55*bevelM) * (1.0 - 0.55*apex) * (1.0 - 0.35*blunt) * (0.75 + 0.55*flatM);
+  // CUT TO ~1/3 in round 3. This was a stand-in for a lobe the material could
+  // not previously express; now that it can, keeping the old amplitude just
+  // buckles the streak the anisotropy is drawing. What remains is form, not
+  // breakup.
+  float wAmp = P2_WAVE_AMP * (1.0 - 0.55*bevelM) * (1.0 - 0.55*apex) * (1.0 - 0.35*blunt) * (0.75 + 0.55*flatM);
   float sAmp = 0.00017 * (1.0 - 0.50*bevelM) * (1.0 - 0.60*apex) + 0.00011*fulM;
 
   s.nPerturb = T * (-gwx*wAmp - gsx*sAmp)

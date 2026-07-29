@@ -34,6 +34,16 @@
       "n": 6,
       "hero": "out/rounds/r6_hero.png",
       "note": "lighting rebalanced by ablation; beam, ground contact, horizon event"
+    },
+    {
+      "n": 7,
+      "hero": "out/rounds/r7_hero.png",
+      "note": "brightness ceiling retired; beam, lit floor, contact shadow at 3.75%"
+    },
+    {
+      "n": 8,
+      "hero": "out/rounds/r8_hero.png",
+      "note": "wear + anisotropy contracts exercised by all four part modules"
     }
   ],
   "pieces": {
@@ -44,8 +54,8 @@
     },
     "p2": {
       "status": "fail",
-      "round": 3,
-      "gap": "Anisotropy fields now exist and are implemented in the lighting BRDF, but this module still leaves aniso=0 and sets no wear mask. Both unexercised."
+      "round": 8,
+      "gap": "Wear and aniso now set, but the exposed apex was tuned as a near-mirror assuming rot would cover it \u2014 it now reads blown. Agent was mid-taming when the session limit hit."
     },
     "p3": {
       "status": "fail",
@@ -54,18 +64,18 @@
     },
     "p4": {
       "status": "fail",
-      "round": 3,
-      "gap": "Sculpt survives better now that the rot is desaturated, but still sets no s.wear, and roof steps cut at 0.012-0.015 remain below the ~0.03 the rot displacement erases."
+      "round": 8,
+      "gap": "Wear mask fires and the sculpt survives, but the worn metal is speckly and reads brassy rather than knocked-clean iron. High-frequency normal noise needs cutting."
     },
     "p5": {
       "status": "fail",
-      "round": 3,
-      "gap": "Rescued from a killed session and never independently reviewed. Sets no wear or aniso despite the wrap having a real fibre direction."
+      "round": 8,
+      "gap": "Fittings now legible and wear/aniso set. Warm key is catching the ferrule lip as orange arcs \u2014 the agent identified these as its own, not the rot's."
     },
     "p6": {
       "status": "fail",
-      "round": 3,
-      "gap": "gemSDF is exposed and the rot now exempts the core, but the emission-fade hack that masked the ragged girdle is still in place, and no wear mask is set."
+      "round": 8,
+      "gap": "Wear and aniso set. Gem exemption in place but the emission-fade hack that masked the ragged girdle has not been verified as removable yet."
     },
     "p7": {
       "status": "fail",
@@ -74,8 +84,8 @@
     },
     "p8": {
       "status": "fail",
-      "round": 6,
-      "gap": "Beam, horizon event and a measured contact shadow all landed. The environment was capped at RGB 0-12/255 by the measuring tool; that cap is now lifted and unspent."
+      "round": 7,
+      "gap": "Background range 3.7x->5.8x and the desaturation test now passes unaided, but the staging reads as hard flat diagonal bands competing with the weapon rather than as a room."
     }
   }
 }

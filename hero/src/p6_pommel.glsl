@@ -234,6 +234,35 @@ vec3 p6_marchCore(vec3 p, vec3 n, vec3 rd){
   return acc;
 }
 
+// ---------------------------------------------------------------- the sculpt --
+// Both of the things the material needs to know about the metal body, from one
+// tetrahedron of taps: the SMOOTHED analytic normal (which land am I on) and
+// the CONVEXITY (am I on an arris or down in a crevice).
+//
+// Why curvature rather than a hand-written mask per feature: this sculpt has
+// eight octagon corners, two mirrored bevel breaks, a torus crown, four claw
+// crests, a collar bead and an eight-sided finial, and every one of them is an
+// arris. Enumerating them is a page of near-duplicate smoothsteps that goes
+// stale the moment a radius moves. The mean of the SDF over a small tetrahedron
+// minus its value at the centre is exactly zero on a plane, positive on a
+// convex edge and negative inside a fillet — it finds all of them at once, and
+// it finds them on the CLEAN sculpt, so the wear follows the jeweller's work
+// rather than the corrosion's noise. Scaled to read as 1/radius.
+//
+// Five p6_body evaluations. This is in shadePommel, which runs once per pixel,
+// not in sdPommel.
+void p6_sculpt(vec3 p, out vec3 gn, out float curv){
+  const vec2  k = vec2(1.0, -1.0);
+  const float h = 0.0060;
+  float d0 = p6_body(p);
+  float a  = p6_body(p + k.xyy*h);
+  float b  = p6_body(p + k.yyx*h);
+  float cc = p6_body(p + k.yxy*h);
+  float dd = p6_body(p + k.xxx*h);
+  gn   = normalize(k.xyy*a + k.yyx*b + k.yxy*cc + k.xxx*dd + vec3(1e-9, 1e-9, 0.0));
+  curv = 3.0*((a + b + cc + dd)*0.25 - d0)/(h*h);
+}
+
 Surf shadePommel(vec3 p, vec3 n){
   Surf s = defaultSurf();
   vec3  c = p6_centre();
@@ -267,15 +296,24 @@ Surf shadePommel(vec3 p, vec3 n){
     // Grazing angles look along the longest chord AND catch total internal
     // reflection, so real stones burn brightest at their rims.
     float fres = pow(1.0 - NoV, 3.5);
-    inner *= 1.0 + fres*1.7;
+    inner *= 1.0 + fres*1.05;
 
-    // The corrosion has crept over the girdle and clouded the crown, so the
-    // stone only runs clear through its table. This also does the compositional
-    // work: p3 chews the gem's outline into big irregular scallops, and if the
-    // emission ran all the way out, the focal point would be a ragged splat
-    // instead of a clean disc sitting in a corroded rim.
-    float clear = 1.0 - smoothstep(0.028, 0.058, p6_oct(g.xy));
-    inner *= 0.10 + 0.90*clear;
+    // ROUND 3: THE EMISSION FADE IS GONE.
+    // It used to read `inner *= 0.10 + 0.90*(1 - smoothstep(0.028, 0.058, oc))`,
+    // which killed nine tenths of the light everywhere outside the table — and
+    // the table only runs to oc 0.033, so that fade was eating the crown
+    // facets entirely. It existed to hide `rotDisplace` chewing the stone's
+    // outline into scallops. p3 now exempts `gemSDF` in both the displacement
+    // and the tarnish, and the exemption was verified: rendering the gem alone
+    // under mode 2 (which includes rot displacement) gives a clean faceted
+    // disc with straight girdle segments and zero scalloping. The problem the
+    // fade was hiding no longer exists, so the stone runs clear to its girdle
+    // and the crown facets finally carry light.
+    //
+    // The overall gain came down to pay for it: the same emission over three
+    // times the area is three times the light, and the rig underneath was
+    // rebalanced darker (punctual specular cut 10x). What matters is that the
+    // nucleus is still the only blown thing and it is still small.
 
     // A polished stone's other half is its SURFACE: one tight, colourless,
     // Fresnel-weighted reflection of the room. Verified by rendering with the
@@ -286,11 +324,76 @@ Surf shadePommel(vec3 p, vec3 n){
     // one thing here that reads as glass rather than as a light.
     vec3 refl = envRadiance(reflect(rd, gn), 0.055);
     float F   = 0.045 + 0.955*pow(1.0 - NoV, 5.0);
-    s.emissive = inner*1.45 + min(refl*F, vec3(9.0));
+    s.emissive = inner*0.62 + min(refl*F, vec3(9.0));
+
+    // Cut stone has no grain and does not corrode: leave aniso at zero, and
+    // mark it fully worn so p3's hold-back backs the crust off the setting's
+    // innermost lip as well. (p3 already exempts the stone itself by gemSDF;
+    // this only affects the feather zone.)
+    s.wear = 1.0;
     return s;
   }
 
   // ------------------------------------------------------------ the metal --
+  vec3  gn; float curv;
+  p6_sculpt(p, gn, curv);
+
+  float rxy = length(g.xy);
+  float az  = abs(g.z);
+  float dr  = max(length(g) - P6_RC, 0.0);      // distance out from the stone
+
+  // ============================== WEAR =====================================
+  // This is the channel that decides whether any of the rest of this file is
+  // visible at all. p3's corrosion field saturates to 1.0 across the whole
+  // hilt and applyRot REPLACES albedo, roughness and metalness — so until
+  // s.wear is set, everything below here is computed and then thrown away, and
+  // the pommel renders as an undifferentiated lump of oxide. p3 holds the
+  // crust back by 1 - 0.90*smoothstep(0.06, 0.72, wear), so 0.72 is the value
+  // that means "bare metal" and 0.06 is the value that means "let it rot".
+  //
+  // A jeweller's setting is not worn evenly. It is worn where a thumb, a belt
+  // and a table edge have touched it for a century: the arrises, the crown of
+  // the bezel, the crests of the claws, the octagon's corners, the collar bead
+  // and the finial's points. It is NOT worn in the moat behind the girdle, in
+  // the socket under the stone, or in the undercut beneath a claw — those are
+  // exactly where the water sat.
+  //
+  // Thresholds are not guesses: the curvature field was rendered to screen and
+  // read off. A true arris (an exact max() of two planes) comes back around
+  // 150-300; the gently domed lands between them sit at 20-60; a smooth-union
+  // fillet returns -30 to -80. Setting `ridge` at 9 — the first attempt —
+  // saturated the mask to 1.0 across the entire pommel, and every surface came
+  // back bare, which is the same failure as no mask at all with the sign
+  // flipped. Bare metal has to be the MINORITY of the area or the contrast it
+  // is there to create does not exist.
+  float ridge = smoothstep(85.0, 240.0, curv);        // true arrises and crests
+  float swell = smoothstep(18.0, 80.0, curv);         // the domed lands
+  float fillet= smoothstep(18.0, 70.0, -curv);        // welds, undercuts, moat
+
+  // Crown of the bezel ring: the torus tops out at radial 0.072, az 0.034, and
+  // that circular ridge is the single most legible piece of jewellery on the
+  // pommel. Named explicitly because the curvature there is gentle (tube 0.016)
+  // and `ridge` alone under-reads it.
+  float bezel = (1.0 - smoothstep(0.008, 0.030, abs(rxy - 0.0740)))
+              * smoothstep(0.016, 0.031, az);
+
+  // The moat: the narrow trench between the stone's girdle and the ring's inner
+  // wall. Nothing can reach in there to polish it and everything drains into
+  // it. Same feature the AO term below darkens.
+  float moat = (1.0 - smoothstep(0.0, 0.013, dr)) * (1.0 - smoothstep(0.016, 0.030, az));
+
+  float wear = clamp(ridge*0.98 + bezel*0.55 + swell*0.30, 0.0, 1.0);
+  wear *= (1.0 - 0.85*fillet)*(1.0 - 0.90*moat);
+  // Patchy, not stencilled. Deliberately high contrast — mean about 0.78 but
+  // reaching 0.3 — so the bare metal comes and goes ALONG an arris instead of
+  // tracing it like a drawn line. Rubric 6: an edge highlight of constant
+  // width is the single most reliable tell that something was rendered rather
+  // than photographed.
+  wear *= 0.30 + 0.96*fbm(p*17.0 + 8.0, 2);
+  wear  = clamp(wear, 0.0, 1.0);
+  s.wear = wear;
+
+  // ============================ THE MATERIAL ===============================
   // Cast, not forged: darker and slightly warmer than the guard's hammered
   // iron, with low-frequency casting waviness instead of hammer facets.
   vec3 base = vec3(0.0680, 0.0630, 0.0575);
@@ -298,32 +401,62 @@ Surf shadePommel(vec3 p, vec3 n){
   base *= 0.76 + 0.50*grain;
 
   float wave = fbm(p*14.0, 3);
-  s.albedo   = base;
   s.metal    = 1.0;
-  s.rough    = clamp(0.40 + 0.32*(wave - 0.5), 0.16, 0.84);
+  s.rough    = clamp(0.52 + 0.34*(wave - 0.5), 0.22, 0.88);
   s.nPerturb = vec3(fbm(p*58.0, 3) - 0.5)*0.09;
 
-  // The setting is a finer piece of work than the counterweight: the claws and
-  // the bezel ring were filed and burnished, so they hold a tighter highlight.
-  float setting = 1.0 - smoothstep(0.030, 0.075, length(g.xy));
-  s.rough = mix(s.rough, s.rough*0.55, setting*0.75);
+  // BURNISH. Driven by the SAME field as the wear, and that is the point: the
+  // places the rot yields and the places the metal is bright have to be the
+  // same places, or the surface reads as two unrelated textures stacked. A
+  // metal's albedo is its F0 — 0.068 is darker than any real alloy and only
+  // survived before because p3 was overwriting it. Where a thumb has been, this
+  // is latten: pale, warm, and reflective enough to actually carry a highlight.
+  float burnish = wear*wear*(3.0 - 2.0*wear);         // smootherstep-ish
+  base = mix(base, vec3(0.2280, 0.2030, 0.1600), burnish*0.86);
+  s.rough = mix(s.rough, 0.300, burnish*0.86);
+  // Casting grain is a property of the SKIN. Where the skin has been rubbed
+  // off, the normal has to calm down with it — leaving the full perturbation
+  // on a rough-0.30 surface turned the burnished lands into crazed glass.
+  s.nPerturb *= 1.0 - 0.72*burnish;
+  s.albedo = base;
+
+  // ============================= ANISOTROPY ================================
+  // Honest about where a grain actually exists. The wheel and the finial are
+  // CAST and the claws were filed by hand in every direction — no grain, aniso
+  // stays 0. But the bezel ring and the face bevels were turned: the whole
+  // wheel spun on its Z axis under a graver, so those two surfaces carry a
+  // circumferential grain, and the collar was turned about Y for the same
+  // reason. A turned band's highlight runs AROUND the band, not across it, and
+  // that is the cue that separates a mounted setting from a cast knob.
+  vec3  tanZ = vec3(-g.y, g.x, 0.0);                  // about the wheel's axis
+  vec3  tanY = vec3(-p.z, 0.0, p.x);                  // about the collar's axis
+  float onWheel  = (bezel + swell*smoothstep(0.030, 0.055, rxy))
+                 * smoothstep(0.020, 0.048, rxy);
+  float onCollar = smoothstep(-0.030, 0.010, g.y) * (1.0 - smoothstep(0.030, 0.052, rxy));
+  float turned   = clamp(max(onWheel, onCollar), 0.0, 1.0);
+  vec3  tdir     = (onCollar > onWheel) ? tanY : tanZ;
+  if (dot(tdir, tdir) > 1e-8){
+    s.anisoDir = normalize(tdir);
+    // Damped by the burnish: a turned grain only survives where the surface is
+    // still metal. Under crust there is nothing left to be directional.
+    s.aniso    = clamp(turned*0.72, 0.0, 0.80) * (0.30 + 0.70*burnish);
+  }
 
   // The moat between the girdle and the bezel is a deep, narrow trench that the
   // 5-tap AO barely finds. Occluding it by hand is most of what stops the
   // wheel's face reading as one flat plate — and s.ao is one of the few
   // channels the rot layer multiplies rather than replaces.
-  float moat = (1.0 - smoothstep(0.0110, 0.0330, abs(length(g.xy) - 0.0665)))
-             * (1.0 - smoothstep(0.0180, 0.0300, abs(g.z)));
-  s.ao *= 1.0 - 0.55*moat;
+  s.ao *= 1.0 - 0.58*moat;
+  s.ao *= 1.0 - 0.30*fillet;
 
   // --- the core has damaged the metal around it ----------------------------
   // Whatever is in there has been cooking the socket for a long time: the
   // walls are scorched black and bloomed with verdigris, and the boundary is
-  // ragged rather than a clean radius.
-  float dr = max(length(g) - P6_RC, 0.0);
+  // ragged rather than a clean radius. Held OFF the burnished arrises — scorch
+  // is a deposit, and a rubbed edge does not hold a deposit.
   float burn = exp(-dr*19.0);
   float bn   = fbm(p*74.0 + 4.0, 3);
-  float sc   = clamp(burn*(0.50 + 1.05*bn), 0.0, 1.0);
+  float sc   = clamp(burn*(0.50 + 1.05*bn), 0.0, 1.0) * (1.0 - 0.70*burnish);
   s.albedo = mix(s.albedo, vec3(0.0320, 0.0455, 0.0215), sc*0.88);
   s.rough  = clamp(mix(s.rough, 0.74, sc*0.72), 0.05, 1.0);
 
@@ -342,9 +475,12 @@ Surf shadePommel(vec3 p, vec3 n){
   // Two terms: a tight one that scorches the socket walls, and a wide, much
   // dimmer one so the rest of the wheel still knows the light is there.
   // Discipline: the accent hue is only worth anything while it is scarce, so
-  // both falloffs are deliberately short.
-  s.emissive += vec3(0.36, 0.82, 0.17) * facing * 0.95 / (1.0 + dr*dr*2400.0);
-  s.emissive += vec3(0.20, 0.52, 0.13) * wrap*wrap * 0.42 / (1.0 + dr*dr*180.0);
+  // both falloffs are deliberately short. Tightened in round 3 — the stone now
+  // runs clear to its girdle, so it throws far more light of its own, and the
+  // old wide term on top of that turned the whole setting into one green mass
+  // and buried the jewellery it is supposed to be lighting.
+  s.emissive += vec3(0.36, 0.82, 0.17) * facing * 0.80 / (1.0 + dr*dr*2400.0);
+  s.emissive += vec3(0.20, 0.50, 0.14) * wrap*wrap * 0.26 / (1.0 + dr*dr*620.0);
 
   // The seam. Light escapes the joint between the stone and the metal that
   // holds it, and that thin hot line is the cheapest, most legible signal at
