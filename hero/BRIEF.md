@@ -73,6 +73,23 @@ that way.
   rings around speculars, and it inverts (a dimmer rig gets crushed harder).
   If the subject is too bright, p7 turns the lights down.
 
+**2b. THE BACKGROUND BRIGHTNESS CEILING IS GONE — always measure with a mask.**
+`measure.mjs` used to extract the subject by luminance threshold, which confuses
+"bright" with "object": any background element above ~11.5/255 inflated the
+measured bbox and corrupted frame-fill, principal-axis and proportion for
+everyone. That capped the entire environment at RGB 0-12/255 as a *tooling*
+artifact, not an art choice. Fixed — pass the silhouette pass as an exact mask:
+
+```bash
+node hero/render.mjs --bundle x --out out/x.png     --w 300 --h 375 --ss 1 --tile 130
+node hero/render.mjs --bundle x --out out/x_sil.png --w 300 --h 375 --ss 1 --tile 130 --mode 2
+node hero/measure.mjs hero/out/x.png --mask hero/out/x_sil.png
+```
+
+Same size for both, or it errors. **The presentation module is now free to give
+the ground, the beam and the horizon real presence.** Keep the corners deep
+because the image wants deep corners — not because a script demanded it.
+
 **3. Passing the metrics is not passing.** `measure.mjs` is a floor, not a
 target, and it has been gamed twice: a broad plateau at 0.6-0.8 satisfied the
 "high" bucket while the render contained literally zero speculars, and a deep
@@ -103,6 +120,24 @@ mask to the guard produced a pixel-identical render. Part modules now set
 corrosion back where `s.wear` is high**, leaving exposed metal on the proud
 edges. That contrast — oxide in the recesses, bare knocked-clean metal on the
 edges — is most of what makes corroded metal read as metal rather than as mud.
+
+**4b. IF YOU OWN A PART MODULE, YOU MUST SET `s.aniso` / `s.anisoDir` WHERE THE
+SURFACE HAS A GRAIN.** Same failure as the wear field below: p7 has implemented
+full anisotropic GGX across all four light paths and verified it to float
+precision, but every material module still leaves `aniso = 0`, so none of it is
+exercised. The blade's flats are ground along the blade — set `anisoDir` to the
+blade axis and `aniso` to roughly 0.7-0.9 there, lower on the bevel, zero on
+cast or corroded surfaces which have no grain.
+
+**6b. IF YOU OWN A PART MODULE (p2 blade, p4 guard, p5 grip, p6 pommel), YOU
+MUST SET `s.wear`.** This is the other half of policy 6 and it is currently
+unowned: p3 has implemented its hold-back and it works, but nothing in the tree
+assigns `s.wear` anywhere, so it is still `0.0` from `defaultSurf()` and the
+hold-back never engages. Set it high (0.6-1.0) on arrises, chamfer lips, raised
+lands, proud bosses and handled areas — anywhere use would knock or polish the
+surface clean — and low in recesses, seams and undercuts where moisture sat.
+Until you do, the rot overwrites your entire material and your sculpt is
+invisible. Two agents proved that independently.
 
 **7. Sculpted relief must be at least ~0.03 deep to survive.** The rot's crater
 displacement is ~0.013 plus fine grain, so any chamfer, step or engraving

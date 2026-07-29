@@ -24,6 +24,16 @@
       "n": 4,
       "hero": "out/rounds/r4_hero.png",
       "note": "light cut 10x; rot desaturated; real speculars appear"
+    },
+    {
+      "n": 5,
+      "hero": "out/rounds/r5_hero.png",
+      "note": "rot rebuilt in value; all primary metrics in range for the first time"
+    },
+    {
+      "n": 6,
+      "hero": "out/rounds/r6_hero.png",
+      "note": "lighting rebalanced by ablation; beam, ground contact, horizon event"
     }
   ],
   "pieces": {
@@ -39,8 +49,8 @@
     },
     "p3": {
       "status": "fail",
-      "round": 4,
-      "gap": "Chroma is tamed and value range opened, but the dark end went so neutral it stops reading as oxide at all. Coverage still absent from the upper blade."
+      "round": 5,
+      "gap": "Saturation 0.62->0.36 and coverage now reaches mid-blade, but the wear contract is unexercised \u2014 no part module sets s.wear, so the hold-back never engages."
     },
     "p4": {
       "status": "fail",
@@ -59,13 +69,13 @@
     },
     "p7": {
       "status": "fail",
-      "round": 4,
-      "gap": "Specular population now real (0.8% >0.90), but overshot into darkness \u2014 70.7% shadow against a 45-65% target. Diffuse level is the remaining hot path."
+      "round": 6,
+      "gap": "Value structure is lengthwise only \u2014 the flat reads as one value across its width, because the slot pitch is coarser than the few degrees of azimuth a near-flat blade sweeps sideways."
     },
     "p8": {
       "status": "fail",
-      "round": 4,
-      "gap": "Desaturation test now passes and the ground plane exists, but the shaft does not yet read as a beam and the contact shadow is not legible."
+      "round": 6,
+      "gap": "Beam, horizon event and a measured contact shadow all landed. The environment was capped at RGB 0-12/255 by the measuring tool; that cap is now lifted and unspent."
     }
   }
 }

@@ -12,20 +12,37 @@
 // built out of rectangular light cards. The blade reflects those rectangles
 // as distinct stretched shapes, which is what makes it read as metal.
 //
-// ROUND 2 — THE LEVEL. The rig's structure was right and the level was ~3.4
+// ROUND 2 — THE LEVEL. The rig's structure was right and the level was several
 // stops hot: the blade's whole lit face sat above the tonemap shoulder, where
 // value differences stop existing, so a slot/pier environment contrast of
-// ~400:1 rendered as one pale slab. Every emitter now passes through
-// P7_LEVEL, a single global scene-referred scale. Nothing downstream is
-// allowed to bend the result back down (see BRIEF standing policy 2), so the
-// level has to be right HERE. Targets: blade flat mass ~0.2 pre-tonemap,
-// slot bands ~0.6-1.2, and only the hot core / edge rim past 3.0.
+// ~400:1 rendered as one pale slab.
+//
+// The cut is deliberately NOT a single global multiplier, because the
+// over-drive was not global. Ablation (each constant below carries its own
+// evidence) separated three independent paths that were each hot by a
+// different amount, and one that was not hot at all:
+//
+//   P7_PSPEC  0.10   punctual specular — the largest offender
+//   P7_TUBE   0.16   tube specular
+//   P7_DIFF   0.22   diffuse — why the CLAY control was blown
+//   P7_AMB    0.95   ambient diffuse — raised; it sets the SHADOW side
+//   P7_LEVEL  4.20   environment — RAISED, it now lights the flat alone
+//
+// Net effect on the thing the critic measured, the blade's lit face, is about
+// a 10x cut, but the hilt and the shadow side did not come down with it —
+// that separation is the whole point, and it is why the histogram gained a
+// mid mass instead of just going dark. Nothing downstream is allowed to bend
+// this back (BRIEF standing policy 2), so the level is verified against the
+// clay control (--mode 1) and not only against the histogram.
 // ============================================================================
 
-// One global scene-referred scale for the ENVIRONMENT. This is the dimmer.
-// Round 1 ran with it welded open at 1.0 and the whole image plateaued at
-// display 0.76.
-const float P7_LEVEL = 2.95;
+// Scene-referred scale for the ENVIRONMENT. Raised, not cut: with the punctual
+// rig turned down, the environment is now the only thing lighting the polished
+// flat — which is what the design note at the top of this file always claimed
+// it was. The blade's value structure is therefore the slot wall's, so the
+// wall's own peak (below) is what sets how bright the bands get, and this sets
+// the room around them.
+const float P7_LEVEL = 4.20;
 
 // Punctual specular scale. THE OTHER HALF OF THE OVER-DRIVE, and the larger
 // half. Proven by ablation: zeroing every directional and tube light left the
@@ -62,6 +79,18 @@ const float P7_RIM   = 3.2;
 // identically zero and none of the steel tuning moves when this does. What
 // moves is the corroded hilt, which is exactly the part that was over-lit.
 const float P7_DIFF  = 0.22;
+
+// Ambient (environment irradiance) diffuse scale, held separately from the
+// punctual diffuse above. These two do different jobs and the round-2 rebalance
+// needed them to move in opposite directions. The clay control fixes P7_DIFF:
+// it is the KEY-side diffuse, so it sets where a lit matte face lands, and at
+// 0.22 a 0.42-albedo clay face lands at display ~0.65, which is correct. But
+// the same control says nothing about the SHADOW side, and that is where the
+// image was collapsing — the whole corroded hilt was falling off the bottom of
+// the histogram into decile 1. Raising the ambient lifts the unlit side into
+// the mid band WITHOUT touching the lit-face peak, so it buys back midtone
+// without spending any of the headroom clay is guarding.
+const float P7_AMB   = 0.95;
 
 // Build an orthonormal frame around a card's centre direction.
 void p7_frame(vec3 c, out vec3 u, out vec3 v){
@@ -496,8 +525,11 @@ vec3 lightSurface(vec3 ro, vec3 rd, vec3 p, vec3 n, Surf s){
 
   // Diffuse ambient takes a sharpened AO: on the corroded hilt the crevices
   // are the only thing describing relief, and a linear AO leaves it flat.
+  // Sharpened, not squared — ao*ao was costing the hilt most of its midtone
+  // for relief it only needed a fraction of that curve to describe.
+  float aoD = mix(ao, ao*ao, 0.55);
   vec3 irr = p7_envAt(p, n, 1.0);
-  col += s.albedo * (1.0 - s.metal) * irr * (ao * ao * P7_DIFF);
+  col += s.albedo * (1.0 - s.metal) * irr * (ao * aoD * P7_AMB);
 
   // --- emissive -------------------------------------------------------------
   col += s.emissive;

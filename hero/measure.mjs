@@ -41,8 +41,11 @@ function decodePNG(buf) {
   return { w, h, nch, px: out };
 }
 
-const file = process.argv[2];
-if (!file) { console.error('usage: measure.mjs <png>'); process.exit(1); }
+const argv = process.argv.slice(2);
+const file = argv.find((a) => !a.startsWith('--'));
+const mi = argv.indexOf('--mask');
+const maskFile = mi >= 0 ? argv[mi + 1] : null;
+if (!file) { console.error('usage: measure.mjs <png> [--mask <silhouette.png>]'); process.exit(1); }
 const { w, h, nch, px } = decodePNG(readFileSync(file));
 
 const lum = new Float32Array(w * h);
@@ -54,11 +57,25 @@ for (let p = 0, k = 0; k < w * h; k++, p += nch) {
 // ---- subject extraction: anything meaningfully above the corner background --
 const corner = (lum[0] + lum[w - 1] + lum[(h - 1) * w] + lum[h * w - 1]) / 4;
 const thr = Math.max(corner + 0.035, 0.045);
+// Subject extraction. A luminance threshold on the beauty render confuses
+// "bright" with "object", which caps how much presence the background is
+// allowed to have. Prefer a real mask from the silhouette pass (--mode 2).
+const sub = new Uint8Array(w * h);
+let maskSrc = 'luminance threshold (pass --mask for an exact silhouette)';
+if (maskFile) {
+  const m = decodePNG(readFileSync(maskFile));
+  if (m.w !== w || m.h !== h) { console.error(`mask is ${m.w}x${m.h}, image is ${w}x${h}`); process.exit(1); }
+  for (let k = 0; k < w * h; k++) sub[k] = m.px[k * m.nch] > 127 ? 1 : 0;
+  maskSrc = 'silhouette mask ' + maskFile;
+} else {
+  for (let k = 0; k < w * h; k++) sub[k] = lum[k] > thr ? 1 : 0;
+}
+
 let minx = w, maxx = -1, miny = h, maxy = -1, subjectN = 0;
 const rowSpan = new Int32Array(h).fill(-1), rowMin = new Int32Array(h).fill(-1), rowMax = new Int32Array(h).fill(-1);
 for (let y = 0; y < h; y++) {
   let a = -1, b = -1;
-  for (let x = 0; x < w; x++) if (lum[y * w + x] > thr) { if (a < 0) a = x; b = x; subjectN++; }
+  for (let x = 0; x < w; x++) if (sub[y * w + x]) { if (a < 0) a = x; b = x; subjectN++; }
   if (a >= 0) {
     rowMin[y] = a; rowMax[y] = b; rowSpan[y] = b - a;
     minx = Math.min(minx, a); maxx = Math.max(maxx, b);
@@ -73,11 +90,11 @@ const bw = maxx - minx + 1, bh = maxy - miny + 1;
 // across THAT. Without this a rolled composition reports nonsense proportions.
 let mx = 0, my = 0, mn = 0;
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++)
-  if (lum[y * w + x] > thr) { mx += x; my += y; mn++; }
+  if (sub[y * w + x]) { mx += x; my += y; mn++; }
 mx /= mn; my /= mn;
 let cxx = 0, cyy = 0, cxy = 0;
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++)
-  if (lum[y * w + x] > thr) { const dx = x - mx, dy = y - my; cxx += dx * dx; cyy += dy * dy; cxy += dx * dy; }
+  if (sub[y * w + x]) { const dx = x - mx, dy = y - my; cxx += dx * dx; cyy += dy * dy; cxy += dx * dy; }
 cxx /= mn; cyy /= mn; cxy /= mn;
 const theta = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
 // major axis = the eigenvector with the larger eigenvalue
@@ -90,7 +107,7 @@ const NB = 96;
 let tmin = 1e9, tmax = -1e9;
 const pts = [];
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++) {
-  if (lum[y * w + x] <= thr) continue;
+  if (!sub[y * w + x]) continue;
   const dx = x - mx, dy = y - my;
   const t = dx * ax + dy * ay, u = dx * px_ + dy * py_;
   pts.push(t, u);
@@ -121,7 +138,7 @@ const bins = new Array(10).fill(0);
 let sMin = 1, sMax = 0, sSum = 0, sN = 0;
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++) {
   const v = lum[y * w + x];
-  if (v <= thr) continue;
+  if (!sub[y * w + x]) continue;
   bins[Math.min(9, Math.floor(v * 10))]++;
   sMin = Math.min(sMin, v); sMax = Math.max(sMax, v); sSum += v; sN++;
 }
@@ -135,7 +152,7 @@ const high = bins.slice(7).reduce((a, b) => a + b, 0) / sN;
 let spec90 = 0, spec98 = 0;
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++) {
   const v = lum[y * w + x];
-  if (v <= thr) continue;
+  if (!sub[y * w + x]) continue;
   if (v > 0.90) spec90++;
   if (v > 0.98) spec98++;
 }
@@ -149,7 +166,7 @@ const profBin = new Float64Array(SB).fill(-1);
 const lo = Math.min(guardT, tipEnd), hi = Math.max(guardT, tipEnd);
 for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++) {
   const v = lum[y * w + x];
-  if (v <= thr) continue;
+  if (!sub[y * w + x]) continue;
   const t = (x - mx) * ax + (y - my) * ay;
   if (t < lo || t > hi) continue;
   const b = Math.min(SB - 1, Math.floor((t - lo) / (hi - lo + 1e-9) * SB));
@@ -184,7 +201,7 @@ for (let y = 0; y < th; y++) {
     const x0 = Math.floor(x * w / tw), x1 = Math.max(x0 + 1, Math.floor((x + 1) * w / tw));
     const y0 = Math.floor(y * h / th), y1 = Math.max(y0 + 1, Math.floor((y + 1) * h / th));
     let a = 0, n = 0;
-    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { a += lum[yy * w + xx] > thr ? 1 : 0; n++; }
+    for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { a += sub[yy * w + xx]; n++; }
     const on = a / n > 0.4;
     if (on) tOn++;
     row += on ? '#' : '.';
@@ -195,7 +212,7 @@ for (let y = 0; y < th; y++) {
 const pct = (x) => (100 * x).toFixed(1) + '%';
 console.log(`file            ${file}`);
 console.log(`size            ${w}x${h}`);
-console.log(`bg corner lum   ${corner.toFixed(4)}   subject threshold ${thr.toFixed(4)}`);
+console.log(`bg corner lum   ${corner.toFixed(4)}   subject from ${maskSrc}`);
 console.log(`subject bbox    x[${minx}..${maxx}] y[${miny}..${maxy}]  ${bw}x${bh}`);
 console.log(`frame fill      height ${pct(bh / h)}  width ${pct(bw / w)}  coverage ${pct(subjectN / (w * h))}`);
 console.log(`principal axis  ${axisDeg.toFixed(1)} deg from horizontal, length ${axisLen.toFixed(0)}px`);

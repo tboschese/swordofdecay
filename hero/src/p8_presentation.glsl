@@ -26,7 +26,7 @@
 // Framing is derived from dims() rather than hardcoded, so it survives the
 // blade-form module changing the weapon's proportions underneath it.
 const float P8_YAW   = radians(23.5);
-const float P8_PITCH = radians(-4.0);
+const float P8_PITCH = radians(-1.4);   // camera ~1.0 above the floor, not 0.5
 const float P8_ROLL  = radians(15.0);
 const float P8_DIST  = 9.6;
 const float P8_FILL  = 0.740;                 // target fraction of frame height
@@ -107,17 +107,11 @@ vec3 p8_warm (float L){ return vec3(1.4020, 0.9253, 0.5608)*L; }
 // depends on how bright p7 decides to make it.
 vec3 p8_key(){ return normalize(vec3(-0.55, 0.48, 0.68)); }
 
-// Soft ceiling on the environment, in SCENE-LINEAR, applied to the miss path
-// only. Art direction, not a tonemap patch: the room is never allowed to
-// out-value the weapon, whatever the fbm mottling and the mote layers happen
-// to stack up to on a given pixel. It is monotonic and C1 at the knee, so it
-// compresses the top of the background range instead of clipping it — which
-// also keeps every background pixel below measure.mjs's subject threshold, so
-// the bbox/axis/proportion numbers stay meaningful.
-// Lens falloff. Shared, because the ceiling has to know about it: without the
-// compensation the floor pool (which sits at 0.78 falloff) could never reach
-// the same on-screen value as the shaft (which sits at 1.00), and the ground
-// would stay the dimmest thing in frame no matter what it was fed.
+// Lens falloff. Shared between the grade and the environment ceiling below,
+// because the ceiling has to know about it: without the compensation the floor
+// pool (which sits at ~0.72 falloff) could never reach the same on-screen value
+// as the beam (which sits at 1.00), and the ground would stay the dimmest thing
+// in the frame no matter what it was fed.
 float p8_vig(vec2 uv){
   vec2  vq = (uv + P8_SHIFT*0.55) * vec2(0.98, 1.10);
   float r  = length(vq);
@@ -125,10 +119,19 @@ float p8_vig(vec2 uv){
        * (1.0 - smoothstep(0.50, 1.08, r)*0.36);
 }
 
-const float P8_BG_KNEE = 0.0126;
-const float P8_BG_CAP  = 0.0178;
+// Soft ceiling on the environment, in SCENE-LINEAR, applied to the miss path
+// only. Art direction, not a tonemap patch: the room is never allowed to
+// out-value the weapon, whatever the fbm mottling and the mote layers stack up
+// to on a given pixel. Monotonic and C1 at the knee, so it compresses the top
+// of the background range instead of clipping it — which also keeps every
+// background pixel under measure.mjs's subject threshold, so the bbox / axis /
+// proportion numbers downstream stay meaningful.
+const float P8_BG_KNEE = 0.0138;
+const float P8_BG_CAP  = 0.0172;
 vec3 p8_bgCeil(vec3 c, vec2 uv){
-  float g    = 1.0/clamp(p8_vig(uv), 0.60, 1.0);
+  // Partial, not full, compensation: ACES is superlinear through this range, so
+  // dividing the scene-linear cap by the falloff outright overshoots on screen.
+  float g    = pow(1.0/clamp(p8_vig(uv), 0.60, 1.0), 0.62);
   float knee = P8_BG_KNEE*g;
   float cap  = P8_BG_CAP *g;
   float bl = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -138,29 +141,55 @@ vec3 p8_bgCeil(vec3 c, vec2 uv){
   return c * (bo/max(bl, 1e-8));
 }
 
-// Raking shaft. A finite bar of lit dust falling from a high opening on the
-// camera-RIGHT, which is where p7's key actually lives. Leaning 37 deg off
-// vertical against the blade's 12 deg, so the two lines open into a V from the
-// contact point instead of nesting concentrically.
+// Raking shaft, from a window that is off the frame entirely.
+//
+// Four things make a bar of light read as a BEAM rather than as a soft field,
+// and round 1 had none of them:
+//   1. the source is off-frame — the beam is CUT by the right edge at full
+//      strength rather than fading out inside the picture, so the eye infers a
+//      window it cannot see;
+//   2. the cross-section is asymmetric — the edge facing the aperture is hard,
+//      the trailing edge bleeds, because that is what an occluding jamb does;
+//   3. it loses strength along its length, and dies before it reaches the far
+//      corner;
+//   4. there is dust in it, streaked ALONG the beam. Isotropic noise reads as
+//      cloud; noise stretched down the axis reads as rays.
+//
+// Geometry: 37 deg off vertical against the blade's 12, entering at the right
+// edge and raking down-left to land exactly on the floor pool. The two lines
+// cross at s=(-0.17,-0.46) — the contact point — so the beam and the blade open
+// into a V whose vertex is where the weapon meets the ground, and the beam
+// explains why that patch of stone is lit.
+const vec2 P8_BEAM_C = vec2(0.100, -0.100);
 float p8_shaft(vec2 s){
-  vec2 q = p8_rot(s - vec2(0.180, 0.015), radians(37.0));
-  // The band opens as it descends, the way a real shaft spreads from its source.
-  // Kept narrow: a wide soft band is a wash, and a wash has no direction.
-  float wq   = 0.046 + 0.070*smoothstep(0.50, -0.45, q.y);
-  float band = exp(-(q.x*q.x)/(2.0*wq*wq));
-  float run  = smoothstep(0.80, 0.34, q.y) * smoothstep(-0.58, -0.06, q.y);
-  // Ragged density so it reads as light through dust, not a Photoshop gradient.
-  float n = fbm(vec3(s*4.2, 0.0), 3);
-  return band*run*(0.50 + 0.86*n);
+  vec2 q = p8_rot(s - P8_BEAM_C, radians(45.0));
+
+  // (2) asymmetric cross-section; (1)+(3) spread and decay along the length.
+  float spread = smoothstep(0.55, -0.45, q.y);          // 0 at source, 1 far
+  float wHard  = 0.027 + 0.038*spread;
+  float wSoft  = 0.056 + 0.122*spread;
+  float wq     = (q.x > 0.0) ? wHard : wSoft;
+  float band   = exp(-(q.x*q.x)/(2.0*wq*wq));
+
+  // No taper at the top: the beam leaves through the frame edge at full value.
+  float run  = smoothstep(-0.56, -0.14, q.y)
+             * mix(0.40, 1.0, smoothstep(-0.34, 0.46, q.y));
+
+  // (4) dust: high frequency across the beam, low along it => striations.
+  float ray  = fbm(vec3(q.x*17.0, q.y*1.9, 0.0), 3);
+  float mote = fbm(vec3(s*5.4, 2.3), 3);
+  return band*run*(0.26 + 0.92*ray)*(0.66 + 0.54*mote);
 }
 
-// Ambient wash. NOT a halo — round 1 centred a radial glow on the subject and
-// the render read as a specimen on a light table. This is an anisotropic
-// gradient anchored to the shaft, up in the empty camera-right corner, so the
-// field falls away diagonally instead of nesting around the weapon.
+// Ambient wash. NOT a halo — round 1 centred a radial glow at s=(0.02,0.02),
+// within 0.08 of the subject's own centre, so the weapon sat inside a radial
+// bullseye and read as a specimen on a light table. This is an anisotropic
+// gradient anchored to the BEAM, up in the empty camera-right quadrant and a
+// third of a frame away from the subject, so the field falls off diagonally
+// instead of nesting around the sword.
 float p8_halo(vec2 s){
-  vec2 q = p8_rot(s - vec2(0.255, 0.215), radians(37.0));
-  q *= vec2(1.55, 0.72);   // narrow across the shaft, long along it
+  vec2 q = p8_rot(s - vec2(0.285, 0.115), radians(45.0));
+  q *= vec2(1.55, 0.72);   // narrow across the beam, long along it
   return exp(-dot(q, q)*3.1);
 }
 
@@ -168,8 +197,8 @@ float p8_halo(vec2 s){
 // under the weapon and lets the frame edges go to black, so the pool reads as
 // a compositional element rather than as a wash across the bottom.
 float p8_pool(vec2 s){
-  vec2 d = (s - vec2(-0.058, -0.352)) * vec2(1.28, 1.80);
-  return exp(-dot(d, d)*2.3);
+  vec2 d = (s - vec2(-0.080, -0.390)) * vec2(1.34, 1.46);
+  return exp(-dot(d, d)*1.45);
 }
 
 vec3 backgroundCol(vec3 ro, vec3 rd){
@@ -180,8 +209,8 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
   // right and falling to near-black in the lower left. Value, not hue: this is
   // a plain luminance ramp wearing a faint slate tint.
   float dw = smoothstep(-0.55, 0.55, 0.62*s.x + 0.78*s.y);
-  vec3  c  = p8_air(mix(0.00500, 0.00840, dw));
-  c += p8_air(0.00430) * p8_halo(s);
+  vec3  c  = p8_air(mix(0.00395, 0.00495, dw));
+  c += p8_air(0.00130) * p8_halo(s);
 
   // Distance haze, one-sided ABOVE the horizon only. The far ground has to
   // terminate against something brighter than itself or it is not an edge, and
@@ -191,8 +220,8 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
 
   // -- the shaft -------------------------------------------------------------
   float sh = p8_shaft(s);
-  c += p8_air(0.02000) * sh;
-  c += p8_warm(0.00420) * sh*sh;   // rot-ochre where the beam is densest
+  c += p8_air(0.01000) * sh;
+  c += p8_warm(0.00260) * sh*sh;   // rot-ochre where the beam is densest
 
   // -- flagstone floor -------------------------------------------------------
   float fy = p8_floorY();
@@ -223,7 +252,7 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
       // Light pool: physical falloff about the weapon, shaped in screen space
       // so the frame corners stay black.
       float rxz  = length(fp.xz);
-      float pool = exp(-rxz*rxz*0.070) * p8_pool(s);
+      float pool = exp(-rxz*rxz*0.115) * p8_pool(s);
 
       // Real contact shadow. softShadow() is forward-declared in core_head and
       // defined in core_scene, so the miss path can trace the scene too — the
@@ -233,15 +262,27 @@ vec3 backgroundCol(vec3 ro, vec3 rd){
       if (rxz < 4.2){
         float sv = softShadow(fp + vec3(0.0, 0.010, 0.0), p8_key(), 0.03, 7.0, 14.0);
         occ = mix(1.0, sv, smoothstep(4.2, 3.0, rxz));
-        // Ambient contact darkening — tight, so it reads as the seam where the
-        // pommel meets the stone rather than swallowing the pool it sits in.
-        occ *= 1.0 - 0.80*exp(-rxz*rxz*2.20);
+        // Two ambient contact lobes on top of the traced shadow.
+        //  - a tight near-black core at the seam where the pommel meets stone:
+        //    darkest and smallest exactly at contact, which is the gradient
+        //    that reads as weight;
+        //  - a wide lobe STRETCHED along the key's floor projection, so the
+        //    soft occlusion has the same direction the cast shadow does. p7's
+        //    key is slightly camera-side, so its true cast runs away from the
+        //    viewer and is heavily foreshortened; this gives that direction
+        //    something legible on the near side of the plane.
+        occ *= 1.0 - 0.90*exp(-rxz*rxz*4.60);
+        vec2  sdir  = normalize(vec2(0.55, -0.68));      // shadow, floor plane
+        float along = dot(fp.xz, sdir);
+        float acrs  = dot(fp.xz, vec2(-sdir.y, sdir.x));
+        float aa    = (along > 0.0) ? along*0.68 : along*1.90;
+        occ *= 1.0 - 0.58*exp(-(aa*aa + acrs*acrs*2.60)*1.55);
       }
 
       // The ember bounce is folded INTO the pool rather than added on top, so
       // the warm note costs value it already has instead of extra brightness.
       vec3 poolCol = mix(vec3(0.9760, 0.9953, 1.1173), vec3(1.4020, 0.9253, 0.5608), 0.34);
-      vec3 stone = (p8_stone(0.00600) + poolCol*(0.03400*pool*occ)) * surf;
+      vec3 stone = (p8_stone(0.00520) + poolCol*(0.02450*pool*occ)) * surf;
 
       float fog  = exp(-max(tf - 12.0, 0.0)*0.075);
       float edge = smoothstep(0.0, 0.018, -rd.y);
@@ -325,9 +366,14 @@ vec3 p8_srgb(vec3 c){
 }
 
 vec3 postProcess(vec3 hdr, vec3 bloomC, vec2 uv){
-  // Halation: the bloom is biased warm so hot steel glows like film, not like
-  // a screen-space blur of itself.
-  vec3 c = hdr + bloomC*vec3(0.40, 0.34, 0.28);
+  // Halation: the bloom is re-added warm-biased so hot steel glows like film,
+  // not like a screen-space blur of itself. The RATIO between the channels is
+  // the look; the magnitude is deliberately modest. At 0.40 the tip's halo grew
+  // faster than the frame did — at 360x450 it inflated the measured subject
+  // bbox from 3.3:1 to 9.1:1 blade:hilt — and it would grow again the moment
+  // p7 puts its stop back. A grade should not become a different grade at a
+  // different output size.
+  vec3 c = hdr + bloomC*vec3(0.22, 0.187, 0.154);
 
   // ---- the ONE exposure normalisation, scene-referred, before the tonemap.
   // p7 owns how much light there is; this is the single trim, and nothing
@@ -393,9 +439,9 @@ vec3 postProcess(vec3 hdr, vec3 bloomC, vec2 uv){
   // exactly where dither is needed. Round 1 gated at l=0.03 while the
   // background sat at l=0.02, giving 13 distinct values over 450 rows.
   // (keyed to pixels, not to uv, so the grain size holds at any output res)
-  float gw = (0.36 + 0.64*smoothstep(0.004, 0.16, l))*(1.0 - smoothstep(0.55, 0.98, l));
+  float gw = (0.22 + 0.78*smoothstep(0.004, 0.16, l))*(1.0 - smoothstep(0.55, 0.98, l));
   float gn = hash13(vec3(uv*uRes.y + 17.0, 4.31)) - 0.5;
-  c += gn*0.027*gw;
+  c += gn*0.024*gw;
 
   return clamp(c, 0.0, 1.0);
 }

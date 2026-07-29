@@ -60,7 +60,7 @@ float p3_field(vec3 p, int mid, int oct){
 
   // (a) The blight came up out of the hilt. It dies out well before the tip —
   //     most of the blade has to stay steel or there is no contrast, no story.
-  float climb = 1.0 - smoothstep(-0.22, 0.54*L, p.y);
+  float climb = 1.0 - smoothstep(-0.22, 0.66*L, p.y);
 
   // (b) Moisture SAT in the concave seams: guard/blade junction, and the
   //     collar where the grip meets the pommel. Corrosion is a map of where
@@ -92,9 +92,9 @@ float p3_field(vec3 p, int mid, int oct){
   // zone that was painted on up to a line — and they carry it into the upper
   // half of the weapon, which round 1 left at exactly 0% coverage.
   float col = vnoise(p*vec3(5.0, 2.6, 5.0) + vec3(37.0, 3.0, 19.0));
-  col  = smoothstep(0.58, 0.79, col);
-  col *= smoothstep(0.12*L, 0.26*L, p.y) * (1.0 - smoothstep(0.46*L, 0.86*L, p.y));
-  r = max(r, col*0.74);
+  col  = smoothstep(0.54, 0.77, col);
+  col *= smoothstep(0.10*L, 0.24*L, p.y) * (1.0 - smoothstep(0.58*L, 0.96*L, p.y));
+  r = max(r, col*0.78);
 
   // A second, sparser and much finer generation: single seeds, no colony
   // around them yet, reaching nearly to the tip. These have to be DISCRETE and
@@ -103,9 +103,9 @@ float p3_field(vec3 p, int mid, int oct){
   // through. Sparse hard marks are the only stage-1 signal that survives up
   // there — verified by driving the wash to full and watching nothing happen.
   float sd = vnoise(p*vec3(11.0, 5.5, 11.0) + vec3(3.0, 51.0, 88.0));
-  sd  = smoothstep(0.70, 0.88, sd);
-  sd *= smoothstep(0.28*L, 0.46*L, p.y) * (1.0 - smoothstep(0.74*L, 1.00*L, p.y));
-  r = max(r, sd*0.58);
+  sd  = smoothstep(0.64, 0.85, sd);
+  sd *= smoothstep(0.22*L, 0.40*L, p.y) * (1.0 - smoothstep(0.86*L, 1.06*L, p.y));
+  r = max(r, sd*0.66);
 
   // (e) Leather is not iron. It stains and goes soft and mouldy, but it does
   //     not scale off in plates — and the palm has been gripped and wiped.
@@ -193,12 +193,16 @@ float p3_bump(vec3 q){
 // orange foam. Here the three anchors are almost neutral; a separate tint
 // (see p3_tint) supplies what little chroma there is.
 vec3 p3_tone(float v){
-  // The dark anchor keeps its chroma: a soaked pit floor is a genuinely dark
-  // red-brown, not a neutral black, and at this luminance the chroma costs
-  // nothing perceptually while it keeps the floors legible as *oxide*.
-  vec3 dark = vec3(0.0150, 0.0074, 0.0052);   // dead pit floor, all but black
+  // The dark anchor carries REAL chroma. Deep iron oxide holds a warm
+  // red-brown bias all the way down, and dead scale goes brown-black, never
+  // neutral-black. Trading chroma for value overshot here first time: the
+  // floors flattened to grey and stopped reading as oxide at all — they read
+  // as dirt in a hole. Note the albedo is deliberately not as low as it looks
+  // it should be; the DARKNESS of a pit floor is supplied by the cavity AO
+  // below, so the albedo is free to carry hue instead of carrying value.
+  vec3 dark = vec3(0.0330, 0.0158, 0.0098);   // soaked pit floor, red-brown
   vec3 mid  = vec3(0.0980, 0.0810, 0.0665);   // bulk crust
-  vec3 pale = vec3(0.8200, 0.7860, 0.7380);   // salt / oxide efflorescence
+  vec3 pale = vec3(0.7300, 0.6820, 0.6060);   // salt / oxide efflorescence
   // Lower half squared, so the bulk crust sits low and the floors go properly
   // black. Upper half LINEAR — squaring it too was the bug that quietly ate
   // the efflorescence: raising the pale anchor moved the render not at all.
@@ -260,7 +264,11 @@ Surf applyRot(Surf s, vec3 p, vec3 n, int mid){
   float Lb = max(dims().bladeLen, 0.4);
   float streak = fbm(vec3(p.x*24.0, p.y*0.85, p.z*24.0) + 71.0, 3);
   // Run-off drains, ungated: thin vertical stripes thinning out with height.
-  float reach  = 1.0 - smoothstep(0.03*Lb, 0.80*Lb, p.y);
+  // Reaches PAST the tip, so nothing on the blade is perfectly pristine — the
+  // faintest sourness still touches the point. The crust must not follow it
+  // up there: the bright tip is the focal highlight and rot on it would fight
+  // the composition. Halo far, crust near.
+  float reach  = 1.0 - smoothstep(0.03*Lb, 1.14*Lb, p.y);
   // Deliberately high contrast between drain and no-drain: a uniform veil at
   // this strength turns the blade into unfinished cast iron (verified — it
   // kills the rim and the grind together). Stripes read; a wash does not.
@@ -337,9 +345,9 @@ Surf applyRot(Surf s, vec3 p, vec3 n, int mid){
   // It has to drift across the crust at a scale UNRELATED to the cells —
   // sampled anywhere near P3_CELL it lands one cap on each cell and the whole
   // surface turns into leopard print.
-  float efl = smoothstep(0.44, 0.80, fbm(p*vec3(4.4, 3.1, 4.4) + vec3(5.0, 88.0, 3.0), 3));
+  float efl = smoothstep(0.37, 0.75, fbm(p*vec3(4.4, 3.1, 4.4) + vec3(5.0, 88.0, 3.0), 3));
   float bloom = efl * mix(0.55, 1.0, plate) * (1.0 - craterFloor*0.85)
-              * (0.38 + 0.62*up) * smoothstep(0.20, 0.62, r);
+              * (0.54 + 0.46*up) * smoothstep(0.20, 0.62, r);
 
   // Three scales of value, deliberately: slow mottling, cell-scale craters,
   // fine pitting. One dominant frequency is what makes procedural corrosion
@@ -357,7 +365,7 @@ Surf applyRot(Surf s, vec3 p, vec3 n, int mid){
   vf -= pitFloor*0.30;                     // fine scale competes with the cells
   vf -= plateEdge*0.30;                    // the undercut lip of a scab
   vf += flakeRim*0.20*live;                // standing ridge still catching
-  vf += bloom*0.92;                        // the pale dry top end
+  vf += bloom*1.04;                        // the pale dry top end
   vf  = clamp(vf, 0.0, 1.0);
 
   // -- HUE, on a field of its OWN -------------------------------------------
@@ -367,19 +375,23 @@ Surf applyRot(Surf s, vec3 p, vec3 n, int mid){
   float hueF = fbm(p*vec3(2.2, 1.45, 2.2) + vec3(133.0, 17.0, 58.0), 3)
              + (vnoise(p*vec3(7.5, 5.2, 7.5) + vec3(211.0, 9.0, 40.0)) - 0.5)*0.34;
   hueF = clamp((hueF - 0.5)*2.4 + 0.5, 0.0, 1.0);
-  vec3 tint = mix(vec3(1.0), p3_tint(hueF), 0.74);   // overall chroma trim
+  vec3 tintRaw = p3_tint(hueF);
 
   // Necrotic bloom — the thing that makes it rot rather than rust. Its own
   // mask again, so olive lands as a real region instead of a rounding error.
   vec3  tBlight = vec3(0.94, 1.10, 0.64);   // ~68 deg
   float blightM = smoothstep(0.54, 0.79, fbm(p*vec3(3.4, 2.2, 3.4) + vec3(60.0, 7.0, 2.0), 3))
                 * smoothstep(0.26, 0.70, r);
-  tint = mix(tint, tBlight, blightM*0.62);
+  tintRaw = mix(tintRaw, tBlight, blightM*0.62);
 
-  // Efflorescence is a salt, not an oxide: it is nearly colourless. Taper the
-  // chroma out at the top of the value ramp or the pale bloom just reads as
-  // a lighter orange and the whole exercise is wasted.
-  tint = mix(tint, vec3(1.0), smoothstep(0.50, 0.92, vf)*0.92);
+  // CHROMA IS A CURVE OVER VALUE, not one global trim. Flattening it applied
+  // the same reduction to the floors as to the crust, and the floors — which
+  // have almost no luminance to spend — went neutral and stopped reading as
+  // oxide. Deep wet oxide is the MOST chromatic thing on the surface; the mid
+  // crust is modest; the dry salt bloom on top is nearly colourless.
+  float chroma = mix(1.22, 0.74, smoothstep(0.04, 0.44, vf));
+  chroma = mix(chroma, 0.26, smoothstep(0.52, 0.92, vf));
+  vec3 tint = mix(vec3(1.0), tintRaw, chroma);
 
   vec3 oxide = p3_tone(vf) * tint;
 
