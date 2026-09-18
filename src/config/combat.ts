@@ -1,5 +1,110 @@
 export type CombatTypeId = "stomp" | "projectile" | "sword";
 
+/**
+ * Um frame do jogo a 60fps, em ms. Impacto se autora em FRAMES, não em
+ * milissegundos: o olho conta frames, e "3 frames" é uma decisão de game
+ * feel verificável numa captura — "50ms" é um número que ninguém confere.
+ */
+export const FRAME_MS = 1000 / 60;
+
+/**
+ * HITSTOP — a pausa no instante do impacto.
+ *
+ * É metade do peso de um golpe em Metal Slug / Neo Geo: sem ela a espada
+ * atravessa o inimigo como se ele fosse ar, por mais partícula que se
+ * jogue em cima. O olho lê a pausa como MASSA.
+ *
+ * Três regras que separam hitstop bom de travamento:
+ *  1. A pausa não congela tudo — partícula e flash continuam correndo
+ *     (ver `Particles.update`, que sempre anda em tempo real).
+ *  2. Escala com o dano — o carregado pausa mais que o normal, senão a
+ *     mecânica de carga não se comunica.
+ *  3. Retoma em rampa curta, não em degrau: `rampFrames` a `rampScale`
+ *     antes de voltar a 1.
+ */
+export interface HitstopConfig {
+  /** Espada normal (3 de dano). */
+  swordFrames: number;
+  /** Espada carregada (5 de dano) — o salto tem que ser óbvio. */
+  swordChargedFrames: number;
+  /** Flecha cravando: perfuração tem menos massa que corte. */
+  arrowFrames: number;
+  /**
+   * Golpe que MATA.
+   *
+   * Contido de propósito, e a razão é aritmética de balanceamento: a
+   * espada faz 3 de dano e o walker tem 3 de HP (o shooter, 2) — ou
+   * seja, TODO golpe de espada que conecta é um golpe fatal. Se a morte
+   * pausasse mais que o carregado, a pausa do carregado nunca apareceria
+   * e a mecânica de carga perderia justamente a metade do feedback que
+   * ela tem pra se comunicar. A morte já se anuncia sozinha: o corpo
+   * some e vira esporo.
+   */
+  killFrames: number;
+  /** Jogador levando dano — vende o baque de quem apanhou. */
+  playerHurtFrames: number;
+  /** Frames de retomada em câmera lenta depois do congelamento duro. */
+  rampFrames: number;
+  /**
+   * Escala de tempo no primeiro frame da retomada (sobe até 1 ao longo da
+   * rampa). PISO REAL, não gosto: com `gravityDown` de 560 px/s² do
+   * arquétipo floaty, a queda por frame é `g·dt²`; abaixo de ~0.26 isso
+   * fica menor que o EPS de 0.01px de `engine/collision.ts`, o teste de
+   * chão nunca dispara e `Player.isGrounded` vira false no meio do
+   * impacto — o herói troca pra pose aérea justamente no frame do golpe.
+   */
+  rampScale: number;
+  /** Teto absoluto de uma pausa. Nem morte carregada passa disso. */
+  maxFrames: number;
+}
+
+export const HITSTOP: HitstopConfig = {
+  swordFrames: 3,
+  swordChargedFrames: 7,
+  arrowFrames: 2,
+  killFrames: 4,
+  playerHurtFrames: 4,
+  rampFrames: 2,
+  rampScale: 0.4,
+  maxFrames: 9,
+};
+
+/**
+ * Deslocamento visual do alvo no impacto (knockback de leitura, não de
+ * física — não empurra hitbox nem muda colisão).
+ *
+ * Resolve DEPOIS da pausa, nunca durante: durante o hitstop o alvo fica
+ * cravado no lugar, e é justamente o contraste entre "parado demais" e o
+ * lurch que vem em seguida que faz o golpe ter direção. Deslocar durante
+ * a pausa mataria as duas coisas ao mesmo tempo.
+ */
+export interface ImpactShiftConfig {
+  /** Espada normal (px). */
+  swordPx: number;
+  /** Espada carregada (px). */
+  swordChargedPx: number;
+  /** Flecha (px). */
+  arrowPx: number;
+  /** Frames até o deslocamento máximo, contados do fim da pausa. */
+  outFrames: number;
+  /** Frames pra voltar ao lugar. Mais longo que a ida: sai seco, volta macio. */
+  settleFrames: number;
+  /**
+   * Raio (px) em que uma consulta casa com um impacto registrado. O alvo
+   * não tem id nesse caminho — o que identifica é a posição do acerto.
+   */
+  matchRadiusPx: number;
+}
+
+export const IMPACT_SHIFT: ImpactShiftConfig = {
+  swordPx: 3,
+  swordChargedPx: 6,
+  arrowPx: 1.5,
+  outFrames: 3,
+  settleFrames: 7,
+  matchRadiusPx: 16,
+};
+
 export interface StompConfig {
   /** Velocidade vertical mínima de queda (px/s) pra contar como stomp. */
   minFallSpeed: number;
