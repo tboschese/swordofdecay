@@ -1,0 +1,297 @@
+{
+  "push": "AAA + 3D",
+  "round": 40,
+  "updated": "2026-07-31T00:00:00.000Z",
+  "note": "Rodada 40: impacto com materia entregue (4 vozes: naco, po, esporo, aco — a maior forma do efeito e ESCURA, e o conjunto fica abaixo do limiar de bloom de proposito). Custo: +2 draw calls e +88 triangulos so quando ativo, mais barato que a esfera que substituiu. O agente apontou que o gap restante estava no MEU arquivo: o arco de lamina tinha ~8x a area do jorro inteiro nos quadros congelados, em quase-branco a 0.85 — o clarao de aco era o evento. Corrigido e EXTRAIDO pra 3d/src/render/BladeArc.ts, uma definicao so: a bancada duplicava o arco e continuou fotografando os valores antigos depois que o jogo mudou. Bancada que duplica o que mede acaba medindo outra coisa.",
+  "harness": {
+    "deterministic": true,
+    "evidence": "sha256 idêntico em 2 execuções separadas do cenário idle, seed 1337",
+    "scenes": 8,
+    "shotsPerRound": 26,
+    "captureSeconds": 3
+  },
+  "rounds": [
+    {
+      "n": 0,
+      "dir": "shots/out/r0",
+      "note": "baseline — o jogo como estava antes de qualquer trabalho de arte"
+    },
+    {
+      "n": 1,
+      "dir": "shots/out/r1",
+      "note": "grade + parallax em camadas + HUD de produto + tileset procedural"
+    },
+    {
+      "n": 2,
+      "dir": "shots/out/r2",
+      "note": "floresta com forma, ruinas, inimigos redesenhados"
+    },
+    {
+      "n": 3,
+      "dir": "shots/out/r3",
+      "note": "trabalho dos agentes (guerreiro + impacto) + cenario de combate real"
+    },
+    {
+      "n": 4,
+      "dir": "shots/out/r4",
+      "note": "combate julgavel, projetil em paleta, color cycling"
+    },
+    {
+      "n": 5,
+      "dir": "shots/out/r5",
+      "note": "impacto em paleta, telegrafo de tiro, animacao de inimigo"
+    },
+    {
+      "n": 6,
+      "dir": "shots/out/r6",
+      "note": "copas mastigadas (m4 passou), hitstop ligado e medido"
+    },
+    {
+      "n": 7,
+      "dir": "shots/out/r7",
+      "note": "tres modulos aprovados; cenario air cobre o pouso"
+    },
+    {
+      "n": 9,
+      "dir": "shots/out/r9",
+      "note": "atmosfera: particulas de ar, feixes, clima"
+    },
+    {
+      "n": 10,
+      "dir": "shots/out/r10",
+      "note": "poses de morte, dano por troca de paleta, telegrafo"
+    },
+    {
+      "n": 11,
+      "dir": "shots/out/r11",
+      "note": "telas de titulo/vitoria/derrota; fluxo de produto completo"
+    },
+    {
+      "n": 12,
+      "dir": "shots/out/r12",
+      "note": "terreno sem linha continua; alvo de sombra por tipo de cena"
+    },
+    {
+      "n": 13,
+      "dir": "shots/out/r13",
+      "note": "metrica --layers; palco clareado e desruidado"
+    },
+    {
+      "n": 14,
+      "dir": "shots/out/r14",
+      "note": "rampas de tile alargadas, grao reduzido, labio legivel"
+    },
+    {
+      "n": 15,
+      "dir": "shots/out/r15",
+      "note": "lungeCharge em core/Enemy.ts; walker telegrafa investida"
+    },
+    {
+      "n": 16,
+      "dir": "shots/out/r16",
+      "note": "dither de transicao corrigido + detalhe de solo em aglomerado + ancora de cor ferrugem + metrica --color"
+    },
+    {
+      "n": 17,
+      "dir": "shots/out/r16",
+      "note": "mascara de ator + --edge com linha de piso do tilemap; contrato de ruido passa nos 4 cenarios"
+    },
+    {
+      "n": 18,
+      "dir": "shots/out/r16",
+      "note": "labio do tile + criterio de aresta por corrida cega (validado por ablacao); ancora de cor fechada no escuro"
+    },
+    {
+      "n": 19,
+      "dir": "shots/out/r16",
+      "note": "musica religada (estava morta desde a migracao), audio recodificado, dist 26MB -> 6.4MB"
+    },
+    {
+      "n": 20,
+      "dir": "shots/out/furniture",
+      "note": "startAt no harness + 3 cenarios de mobilia; espinhos, estandarte e porta viraram pixel art"
+    },
+    {
+      "n": 21,
+      "dir": "shots/out/r16",
+      "note": "retune de movimentacao (razao de gravidade 1.17 -> 1.92) + cenario traverse como smoke test de jogabilidade"
+    },
+    {
+      "n": 22,
+      "dir": "3d/probe/out",
+      "note": "Fase 0 do 3D: determinismo em WebGL headless provado; backend fixado; orcamento de frame medido"
+    },
+    {
+      "n": 23,
+      "dir": "3d/out/t1",
+      "note": "jogo 3D 2.5D minimo jogavel sobre a fase existente; travessia equivalente ao 2D"
+    },
+    {
+      "n": 24,
+      "dir": "3d/",
+      "note": "nucleo 3D do zero; fase 1 atravessavel com 0 mortes; fan-out de 4 modulos em andamento"
+    },
+    {
+      "n": 25,
+      "dir": "3d/build",
+      "note": "jogo 3D jogavel e publicado; alvenaria na face frontal; fundo de vila"
+    },
+    {
+      "n": 26,
+      "dir": "3d/build",
+      "note": "integracao dos modulos + Rot legivel como perigo"
+    },
+    {
+      "n": 27,
+      "dir": "3d/build",
+      "note": "metrica de camadas 3D + nevoa por distancia; hierarquia consistente na fase inteira"
+    },
+    {
+      "n": 28,
+      "dir": "3d/build",
+      "note": "som sintetizado, inimigos com telegrafo, combate com hitstop"
+    },
+    {
+      "n": 29,
+      "dir": "3d/build",
+      "note": "HUD de vida, portao caido, rastro de lamina"
+    },
+    {
+      "n": 30,
+      "dir": "3d/harness",
+      "note": "metricas de conforto de camera e janela de reacao; settleLambda separado"
+    },
+    {
+      "n": 31,
+      "dir": "3d/build",
+      "note": "passe de imagem completo, rim light, primeiro plano, chanfro"
+    },
+    {
+      "n": 32,
+      "dir": "3d/build",
+      "note": "SSAO reprovado por artefato; particulas de ar em 3 profundidades"
+    },
+    {
+      "n": 33,
+      "dir": "3d/build",
+      "note": "camera dinamica (trabalho do agente completado); dois agentes retomados"
+    },
+    {
+      "n": 34,
+      "dir": "3d/build",
+      "note": "variacao por regiao + oclusao de contato propria; achado estrutural do relevo chapado"
+    },
+    {
+      "n": 35,
+      "dir": "3d/build",
+      "note": "cadeia de causa do sticker fechada: e a silhueta, nao o sombreamento"
+    },
+    {
+      "n": 36,
+      "dir": "3d/build",
+      "note": "silhueta quebrada: 30% -> 82% da irregularidade do Rot"
+    },
+    {
+      "n": 37,
+      "dir": "3d/build",
+      "note": "face do muro quebrada (junta continua 4 linhas -> 0); dicas de pouso so quando uteis"
+    },
+    {
+      "n": 38,
+      "dir": "3d/",
+      "note": "roadmap 3D com criterio de saida; onda de 3 agentes retomada"
+    },
+    {
+      "n": 39,
+      "dir": "3d/",
+      "note": "poda: hierarquia fio/reboco corrigida (15.1% -> 2.5%), escorridos cortados"
+    },
+    {
+      "n": 40,
+      "dir": "3d/",
+      "note": "impacto com materia; arco de lamina virou acento e virou modulo unico"
+    }
+  ],
+  "modules": {
+    "m1": {
+      "name": "terreno",
+      "owns": "tileset + config/tileset.ts",
+      "status": "fail",
+      "round": 14,
+      "owner": "agente m1",
+      "heartbeat": null,
+      "gap": "Contraste do palco 0.48->0.53, ruido +0.093->+0.055, e o labio iluminado agora le com clareza (verificado ampliado). NAO atinge o limiar de 0.75 — mas esse limiar esta marcado como NAO VALIDADO no proprio measure.mjs: a banda de fundo contem ceu claro E mata escura, faixa enorme por natureza, e chao de terra tem faixa estreita por natureza. Antes de tratar como criterio de saida, medir contraste LOCAL na aresta do piso.",
+      "assumption": "O limiar de 0.75 nunca foi calibrado contra arte publicada. E o terceiro alvo desta sessao com esse risco."
+    },
+    "m2": {
+      "name": "inimigos",
+      "owns": "render/sprites.ts + render de core/Enemy.ts",
+      "status": "pass",
+      "round": 15,
+      "owner": "agente m2",
+      "heartbeat": null,
+      "gap": "PASSOU, agora completo. As tres tarefas fechadas: pose de morte, dano por troca de paleta, e telegrafo — o do shooter (recarga) e o do walker (recuo antes de investir). O ultimo exigia estado novo de gameplay (lungeCharge em core/Enemy.ts), que o agente descreveu em vez de inventar e eu implementei. Medido: 2.5px em 30 frames no recuo contra 35px em 40 frames no avanco.",
+      "assumption": null
+    },
+    "m3": {
+      "name": "guerreiro",
+      "owns": "render/KnightRenderer.ts, core/PlayerAnimator.ts",
+      "status": "pass",
+      "round": 7,
+      "owner": "agente m3",
+      "heartbeat": null,
+      "gap": "PASSOU. Verificado por mim: build limpo, zero Math.random, determinismo byte-identico. O agente mediu a luma antes de mexer e descobriu que o problema nao era contraste e sim que as duas pernas estavam ABAIXO do fundo.",
+      "assumption": null
+    },
+    "m4": {
+      "name": "fundo",
+      "owns": "config/parallax.ts + camadas",
+      "status": "pass",
+      "round": 6,
+      "owner": "agente m4",
+      "heartbeat": null,
+      "gap": "PASSOU. Copas com borda mastigada, buracos de ceu, tufos soltos. Verificado por mim: metricas em faixa, determinismo OK, build limpo. O agente recusou a instrucao de usar destination-out do meu brief com razao tecnica correta (canvas opaco e compartilhado) e implementou particao de run.",
+      "assumption": null
+    },
+    "m5": {
+      "name": "atmosfera",
+      "owns": "iluminação, neblina, clima, color cycling",
+      "status": "pass",
+      "round": 9,
+      "owner": "agente m5",
+      "heartbeat": null,
+      "gap": "PASSOU. Verificado por mim: metricas em faixa, determinismo byte-identico, build limpo. O agente descobriu por medicao que feixe com pico no topo nao existe visualmente (pálido sobre palido, metrica nao mexeu um decimo) e moveu o pico pra onde cruza as copas escuras.",
+      "assumption": null
+    },
+    "m6": {
+      "name": "impacto",
+      "owns": "render/Particles.ts, hitstop, screenshake",
+      "status": "pass",
+      "round": 6,
+      "owner": "agente m6",
+      "heartbeat": null,
+      "gap": "PASSOU. Hitstop medido no relogio do mundo: 4 frames no normal, ~10 no carregado, com rampa de saida. Verificado por mim depois de ligar o hook.",
+      "assumption": null
+    },
+    "m7": {
+      "name": "HUD",
+      "owns": "UI de produto (ROADMAP Sessão 7)",
+      "status": "pass",
+      "round": 11,
+      "owner": "agente m7",
+      "heartbeat": null,
+      "gap": "PASSOU. O agente VALIDOU o hook por monkey-patch contra o TilemapGame real antes de entregar, incluindo a assercao que mais importava: Z segurado no titulo nao faz o guerreiro pular no primeiro frame. E avisou de um bloqueio que eu teria descoberto tarde: com screen comecando em title, TODA captura do harness viraria cartaz e quebraria a validacao visual de todos os outros modulos.",
+      "assumption": null
+    },
+    "m8": {
+      "name": "grade",
+      "owns": "pós-processamento final, vinheta, grão",
+      "status": "pass",
+      "round": 12,
+      "owner": "principal",
+      "heartbeat": null,
+      "gap": "PASSOU. Pendencia do alvo de sombra resolvida: ROT_TARGET agora depende do tipo de cena, com o porque registrado no proprio config.",
+      "assumption": "A faixa outdoorDay saiu de uma cena so; enclosed nunca foi validada empiricamente."
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m2 inimigos",
+  "round": 9,
+  "gap": "PASSOU e LIGADO por mim. Folha de 4 -> 13 frames em blocos (andar/dano/morte/telegrafo), indices 0-3 inalterados pra nao quebrar quem consome. Morte: colapso de 3 frames onde o que se apaga e o OLHO, nao o corpo — e as silhuetas continuam opostas depois de mortas (walker vira monte, shooter vira poca de pano). Dano: troca de paleta em vez de aditivo, preserva silhueta e shading. Determinismo OK. PENDENTE: o telegrafo de investida do WALKER e a unica das tres tarefas que depende de estado novo de gameplay (getter lungeCharge em core/Enemy.ts) e nao foi feito.",
+  "assumption": null
+}

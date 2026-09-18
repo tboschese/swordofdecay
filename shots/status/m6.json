@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m6 impacto",
+  "round": 6,
+  "gap": "HITSTOP implementado e LIGADO por mim. Medido no relogio do mundo: golpe normal congela 4 frames e rampa de volta (6.67->11.67->16.67ms); carregado congela um intervalo inteiro de 10 frames. Knockback visual de 3px/6px resolve depois da pausa e nao toca hitbox. Determinismo OK. O agente achou um bug real: WALKER.color 0xd82800 e byte-identico a rota legada playerHurt, entao toda morte de walker emitia as brasas de dano do JOGADOR em vez da emissao de morte — era essa a origem do gap 'clarao branco demais' que eu tinha registrado na rodada 3.",
+  "assumption": "O deslocamento de 3px/6px e numericamente exato mas nunca foi julgado em movimento por um humano."
+}

@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m3 guerreiro",
+  "round": 7,
+  "gap": "PASSOU. Leitura interior da corrida root-causada por medicao, nao por chute: as DUAS pernas estavam abaixo do fundo (perto ~40, longe ~32, fundo ~45) — nao era baixo contraste, era um buraco. Corrigido com sel-out mais suave no interior e rampa de 4 valores nos membros proximos. Agora perna perto ~86 (pico 134), longe ~34, fundo 45. Estado 'land' adicionado (compressao -> recuperacao -> overshoot) e o ciclo 'jump' parou de repetir no ar.",
+  "assumption": null
+}

@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m4 fundo",
+  "round": 6,
+  "gap": "Copas mastigadas em duas escalas, buracos de ceu por particao do run vertical, tufos soltos, proporcao por individuo. VERIFICADO independentemente: media 0.38, p99 0.83, chapado 0.10%, determinismo byte-identico, zero rng. Restam: frestas de 1px entre arvores vizinhas (um passe por arvore nao ve isso), troncos sem afinamento, arvores mortas intocadas.",
+  "assumption": null
+}

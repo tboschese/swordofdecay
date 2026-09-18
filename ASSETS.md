@@ -24,6 +24,27 @@ cobre a biblioteca de música (DESIGN.md §3.1).
   visual estava "básico" demais; este pack tem cores mais vivas e
   contrastantes, mais parecido com o visual clássico de plataforma 8-bit.
 
+### Tiles de chão substituídos por geração PixelLab (2026-07-22)
+
+Rumo ao alvo SNES/Neo Geo (DESIGN.md §2.1), os dois tiles de terreno
+efetivamente usados no gameplay foram trocados pelos gerados via PixelLab
+AI, compostos por cima do sheet CC0 acima (mesmo layout 96×176, 6 col):
+
+- **groundTop** (col0,row0) ← tile "grama no topo, terra embaixo"
+- **groundFill** (col0,row1) ← tile de terra sólida cheia
+
+- **Fonte**: PixelLab AI (`create_sidescroller_tileset`), tileset id
+  `2acb7c8b-874d-4511-b78d-937614010207` — floresta: "rich brown earth
+  soil… / lush vibrant green grass", 16×16, selective outline, detailed
+  shading, seed 1704.
+- **Licença**: gerado sob a subscription PixelLab do autor, sujeito aos
+  Terms of Service da PixelLab (https://pixellab.ai/termsofservice).
+- Backup do sheet CC0 original: fora do repo (scratchpad da sessão).
+- Plataforma one-way, água, porta e bandeiras **continuam** os tiles CC0
+  do OpenGameArt — só chão foi trocado nesta primeira passada. O
+  sombreamento procedural sobre chão (`renderTileShading`) foi removido:
+  o shading agora vem da própria arte.
+
 ## Espinho, moeda e chave — geradas por código, não são asset
 
 O pack acima não inclui esses ícones. Em vez de misturar outro pack de
@@ -79,9 +100,14 @@ pra uma fase que usa 1 mood.
 - Nenhum asset de personagem/inimigo usado ainda: guerreiro e inimigos
   são retângulos coloridos gerados por código (`PlayerController`,
   `Enemy`). Nenhuma licença aplicável.
-- **Tileset "forest" não bate mais com o alvo visual** (decisão de
-  2026-07-05, DESIGN.md §2.1): o alvo mudou de NES pra SNES/Neo Geo
-  ("32-bit mas 2D", paletas ricas, sombreamento em gradiente). O pack
-  atual é estilo NES chapado — precisa ser substituído por um tileset CC0
-  com mais profundidade de cor antes de fechar a barra de qualidade
-  visual. Ainda não substituído.
+- **Tileset "forest" — substituição parcial (2026-07-22)**: os tiles de
+  chão (groundTop/groundFill) já foram trocados pelos gerados via PixelLab
+  rumo ao alvo SNES/Neo Geo (ver seção acima). **Falta** trocar plataforma
+  one-way, água, porta e bandeiras — ainda são o pack NES chapado do
+  OpenGameArt e destoam do chão novo. Regerar via PixelLab (plataforma e
+  água combinam com o mesmo `base_tile_id` pra consistência) fecha a
+  pendência.
+- **Variação de terreno**: o chão novo usa 1 único tile de fill repetido
+  (padrão de pedras se repete visivelmente). Autotiling Wang / múltiplos
+  tiles de fill exige reescrever a leitura de tiles (hoje é frame fixo por
+  GID) — passada futura.

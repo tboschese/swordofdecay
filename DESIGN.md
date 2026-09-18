@@ -269,3 +269,61 @@ Nenhuma dessas barras é negociável por prazo. Se uma sessão do roadmap
 não consegue atingir o critério testável da área que está tocando, o
 escopo da sessão diminui (menos fases, menos chunks) — a barra de
 qualidade não desce.
+
+---
+
+## 6. Mapa-múndi e viagem (PROPOSTO 2026-07-30 — não decidido)
+
+Proposta do dono do projeto: mapa extenso estilo Super Mario World,
+viagem entre fases, e os trechos de viagem (estrada, passagem de
+montanha) virando **shoot'em up**. Ao chegar num lugar novo, salva e
+libera teleporte entre fases.
+
+Registrado aqui como decisão pendente, não como escopo aprovado. Minha
+avaliação, separando as duas coisas porque elas têm riscos muito
+diferentes:
+
+### Mapa + save + teleporte — encaixa bem
+
+A moldura já existe: `Lore/lore.md` tem 10 regiões numa curva de tom
+(§4), e hoje essa curva é invisível para quem joga. Um mapa a torna
+navegável e dá lugar natural pro save. É majoritariamente **dado e UI**,
+reaproveita o que já está construído, e o m7 acabou de entregar as telas
+de produto onde isso se encaixa.
+
+Risco baixo. Pré-requisito real: **hoje existe UMA fase.** Um mapa
+precisa de nós para ligar; com uma fase não há entre onde viajar nem o
+que desenhar no mapa.
+
+### Trecho de viagem como shmup — é um segundo jogo
+
+Não é "mais uma mecânica", é troca de gênero, e o engine não transfere:
+
+- `moveAndCollide` é colisão contra grid de tiles 16×16; shmup usa
+  hitbox livre e padrão de bala.
+- O arquétipo de movimento (`floaty`: gravidade assimétrica, coyote
+  time, jump buffer) é a alma do plataforma e **nada disso existe** num
+  shmup — voo livre ou trilho não têm gravidade nem pulo.
+- Combate, câmera e spawn de inimigo também são outros.
+
+O precedente que costuma ser citado não se aplica: as fases de veículo
+de Metal Slug e os túneis de Contra mantêm **o mesmo sistema de
+movimento** em contexto diferente. Shmup é outro esquema de controle.
+
+Isso não quer dizer "não fazer" — quer dizer que é escopo de um segundo
+jogo compartilhando assets, e deve ser decidido como tal, com sessão
+própria e critério de saída próprio. Bundlá-lo com o mapa esconde o
+tamanho real.
+
+### Recomendação
+
+1. Fazer **mapa + save + teleporte** quando houver 3-4 fases reais.
+2. Tratar o **shmup** como decisão separada, depois disso.
+3. Antes das duas: o push AAA ainda tem `fail` aberto no terreno —
+   30.7% das colunas com beirada de plataforma quase ilegível
+   (`measure.mjs --edge`). Fase nova em cima de piso que não lê
+   multiplica o problema por fase.
+
+**Critério testável, se aprovado**: a partir do mapa, o jogador alcança
+qualquer fase já visitada em no máximo 2 ações, e o tom de cada nó no
+mapa é localizável na curva das 10 regiões sem contradizê-la.

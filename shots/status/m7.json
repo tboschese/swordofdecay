@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m7 HUD",
+  "round": 11,
+  "gap": "PASSOU e LIGADO por mim. Telas de titulo/vitoria/derrota em render/Screens.ts. A erosao dos glifos foi root-causada: remocao por pixel isolado fazia cada sobrevivente virar ilha de alto contraste, que o olho le como brilho e nao como materia sumindo; trocado por campo de ruido coerente com tres bandas, entao a letra morre por VALOR. Vitoria e derrota se distinguem por TOM (temperatura, direcao da poeira, vinheta, corrosao), nao so por texto. Fluxo completo titulo->jogo->desfecho->titulo com reinicio em main.ts. Fecha o criterio de saida da Sessao 7 do ROADMAP.",
+  "assumption": null
+}
