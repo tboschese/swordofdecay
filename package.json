@@ -5,16 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev:2d": "vite",
+    "dev:3d": "vite --open /3d/",
+    "build": "npm run build:2d && npm run build:3d",
+    "build:2d": "tsc -p tsconfig.json && vite build",
+    "build:3d": "npm run typecheck:3d && node 3d/pack.mjs",
+    "typecheck:3d": "tsc -p tsconfig.3d.json",
     "preview": "vite preview",
-    "validate": "esbuild scripts/validateLevel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/validate.mjs && node node_modules/.cache/validate.mjs"
-  },
-  "dependencies": {
-    "phaser": "^3.90.0"
+    "validate": "esbuild scripts/validateLevel.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/validate.mjs && node node_modules/.cache/validate.mjs",
+    "test:smoke:3d": "node 3d/harness/traverse.mjs",
+    "check": "npm run build && npm run validate && npm run test:smoke:3d"
   },
   "devDependencies": {
+    "@types/three": "^0.185.4",
     "esbuild": "^0.25.12",
     "typescript": "^5.7.2",
     "vite": "^6.0.5"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
   }
 }

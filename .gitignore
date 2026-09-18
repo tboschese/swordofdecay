@@ -2,3 +2,19 @@ node_modules/
 dist/
 tsconfig.tsbuildinfo
 .DS_Store
+
+# Builds reproduzíveis. As fontes vivem em 3d/src, 3d/levels e nos harnesses.
+3d/build/
+3d/harness/build/
+3d/probe/build/
+
+# Capturas e dashboards gerados pelos harnesses 2D. Reviews, cenários,
+# métricas e scripts continuam versionados.
+shots/build/
+shots/out/
+shots/dashboard.html
+
+# Saídas locais dos harnesses 3D. Capturas aprovadas devem ser promovidas
+# explicitamente para um diretório de referência antes de serem versionadas.
+3d/harness/out/
+3d/probe/out/
