@@ -92,20 +92,51 @@ export const ARCHETYPES: Record<MovementArchetype["id"], MovementArchetype> = {
     coyoteTimeMs: 60,
     jumpBufferMs: 150,
   },
+  /**
+   * Arquétipo do guerreiro (o jogo inteiro roda neste — ver CLAUDE.md).
+   *
+   * RETUNADO em 2026-08-14 depois do primeiro playtest de verdade, em que
+   * o retorno foi "movimentação estranha". Os números antigos e o que eles
+   * produziam, medidos:
+   *
+   *   gravityDown/gravityUp .. 1.17   <- a causa principal
+   *   ar total por pulo ...... 1.00s
+   *   altura do pulo ......... 65px (4.1 tiles)
+   *   travessia da tela ...... 3.3s
+   *   tempo até vel. máxima .. 0.27s
+   *
+   * A razão de 1.17 é o defeito nomeável: a queda praticamente não
+   * acelerava, então subida e descida tinham o mesmo ritmo. Pulo real cai
+   * mais rápido do que sobe, e quando não cai o corpo lê como boneco
+   * puxado por barbante — é isso que se sente como "estranho" sem
+   * conseguir nomear. Plataforma que se sustenta usa 1.8-2.2.
+   *
+   * Um segundo inteiro de ar é o dobro do normal, e somado a 3.3s de
+   * travessia e 0.27s de rampa de aceleração deixava o controle mole.
+   *
+   * O que FOI preservado, porque é a identidade do arquétipo: gravidade de
+   * subida ainda baixa (hangtime generoso perto do ápice), controle aéreo
+   * alto e as janelas de perdão (coyote 120ms, buffer 150ms) intactas.
+   * "Floaty" é pairar no ápice, não cair devagar o caminho todo.
+   *
+   * Encurtar o pulo era seguro e isso foi VERIFICADO, não presumido: o
+   * maior vão do nível é de 3 tiles (48px) e o alcance novo é de 99px,
+   * ainda o dobro. O alcance antigo de 115px estava superdimensionado.
+   */
   floaty: {
     id: "floaty",
     label: "FLOATY",
-    description: "queda lenta · hangtime generoso",
-    accel: 420,
-    frictionGround: 420,
-    frictionAir: 380,
-    maxSpeed: 115,
-    airControl: 0.85,
-    jumpForce: 250,
+    description: "pairada no ápice · queda firme · controle aéreo alto",
+    accel: 1100,
+    frictionGround: 1300,
+    frictionAir: 500,
+    maxSpeed: 150,
+    airControl: 0.75,
+    jumpForce: 300,
     speedJumpBonus: 0,
-    gravityUp: 480,
-    gravityDown: 560,
-    jumpCutoffMultiplier: 0.6,
+    gravityUp: 780,
+    gravityDown: 1500,
+    jumpCutoffMultiplier: 0.5,
     coyoteTimeMs: 120,
     jumpBufferMs: 150,
   },

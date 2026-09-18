@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m8 grade",
+  "round": 12,
+  "gap": "PASSOU com a pendencia RESOLVIDA por decisao documentada. Media 0.38, p99 0.84, altas 4.5%, pretos reais em p01 0.02. A massa de sombra fica em 24.7%: o alvo antigo de 30-45% foi escrito por extrapolacao ANTES de existir cena, e tentar bater ele escurecendo o parallax piorou a imagem enquanto melhorava a metrica (sd 0.19->0.12, amplitude entre faixas 0.36->0.14). ROT_TARGET agora depende do tipo de cena: outdoorDay 0.18-0.32, enclosed 0.30-0.45. As outras tres metas nao mudaram.",
+  "assumption": "A faixa outdoorDay foi calibrada a partir de UMA cena (vista externa diurna da fase 1). Cena fechada nunca foi construida, entao enclosed segue sem validacao empirica."
+}

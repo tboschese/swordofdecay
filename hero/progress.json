@@ -1,0 +1,91 @@
+{
+  "rounds": [
+    {
+      "n": 0,
+      "hero": "out/rounds/r0_hero.png",
+      "note": "baseline harness"
+    },
+    {
+      "n": 1,
+      "hero": "out/rounds/r1_hero.png",
+      "note": "form, rot, lighting land"
+    },
+    {
+      "n": 2,
+      "hero": "out/rounds/r2_hero.png",
+      "note": "sRGB encode fixed; staged background, rolled camera"
+    },
+    {
+      "n": 3,
+      "hero": "out/rounds/r3_hero.png",
+      "note": "guard, steel, pommel land; rot now the loudest fault"
+    },
+    {
+      "n": 4,
+      "hero": "out/rounds/r4_hero.png",
+      "note": "light cut 10x; rot desaturated; real speculars appear"
+    },
+    {
+      "n": 5,
+      "hero": "out/rounds/r5_hero.png",
+      "note": "rot rebuilt in value; all primary metrics in range for the first time"
+    },
+    {
+      "n": 6,
+      "hero": "out/rounds/r6_hero.png",
+      "note": "lighting rebalanced by ablation; beam, ground contact, horizon event"
+    },
+    {
+      "n": 7,
+      "hero": "out/rounds/r7_hero.png",
+      "note": "brightness ceiling retired; beam, lit floor, contact shadow at 3.75%"
+    },
+    {
+      "n": 8,
+      "hero": "out/rounds/r8_hero.png",
+      "note": "wear + anisotropy contracts exercised by all four part modules"
+    }
+  ],
+  "pieces": {
+    "p1": {
+      "status": "fail",
+      "round": 2,
+      "gap": "Parry hooks are the wrong idea, not badly sized \u2014 any bilateral widening within a blade-width of the guard reads as a second guard at any scale. Delete them and reclaim the length."
+    },
+    "p2": {
+      "status": "fail",
+      "round": 8,
+      "gap": "Wear and aniso now set, but the exposed apex was tuned as a near-mirror assuming rot would cover it \u2014 it now reads blown. Agent was mid-taming when the session limit hit."
+    },
+    "p3": {
+      "status": "fail",
+      "round": 5,
+      "gap": "Saturation 0.62->0.36 and coverage now reaches mid-blade, but the wear contract is unexercised \u2014 no part module sets s.wear, so the hold-back never engages."
+    },
+    "p4": {
+      "status": "fail",
+      "round": 8,
+      "gap": "Wear mask fires and the sculpt survives, but the worn metal is speckly and reads brassy rather than knocked-clean iron. High-frequency normal noise needs cutting."
+    },
+    "p5": {
+      "status": "fail",
+      "round": 8,
+      "gap": "Fittings now legible and wear/aniso set. Warm key is catching the ferrule lip as orange arcs \u2014 the agent identified these as its own, not the rot's."
+    },
+    "p6": {
+      "status": "fail",
+      "round": 8,
+      "gap": "Wear and aniso set. Gem exemption in place but the emission-fade hack that masked the ragged girdle has not been verified as removable yet."
+    },
+    "p7": {
+      "status": "fail",
+      "round": 6,
+      "gap": "Value structure is lengthwise only \u2014 the flat reads as one value across its width, because the slot pitch is coarser than the few degrees of azimuth a near-flat blade sweeps sideways."
+    },
+    "p8": {
+      "status": "fail",
+      "round": 7,
+      "gap": "Background range 3.7x->5.8x and the desaturation test now passes unaided, but the staging reads as hard flat diagonal bands competing with the weapon rather than as a room."
+    }
+  }
+}

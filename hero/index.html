@@ -1,0 +1,226 @@
+<meta charset="utf-8">
+<title>booting</title>
+<style>html,body{margin:0;padding:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script>
+(function () {
+  const Q = new URLSearchParams(location.search);
+  const s = document.createElement('script');
+  s.src = 'build/' + (Q.get('bundle') || 'shaders') + '.js';
+  s.onload = () => window.__heroInit();
+  s.onerror = () => { document.title = 'FAIL:bundle ' + s.src; };
+  document.head.appendChild(s);
+})();
+</script>
+<script>
+window.__heroInit = function () {
+  const Q = new URLSearchParams(location.search);
+  const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
+
+  const W    = num('w', 720);
+  const H    = num('h', 900);
+  const SS   = Math.max(1, Math.round(num('ss', 2)));      // supersample factor
+  const MODE = num('mode', 0);      // 0 beauty | 1 clay | 2 silhouette
+  const ISO  = num('isolate', 0);   // 0 all | 1 blade | 2 guard | 3 grip | 4 pommel
+  const TILE = num('tile', 128);    // tile height in internal px
+
+  const IW = W * SS, IH = H * SS;
+
+  const cv = document.getElementById('c');
+  cv.width = W; cv.height = H;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+
+  const gl = cv.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+  const fail = (m) => { document.title = 'FAIL:' + m; throw new Error(m); };
+  if (!gl) fail('no webgl2');
+  if (!gl.getExtension('EXT_color_buffer_float')) fail('no EXT_color_buffer_float');
+  gl.getExtension('OES_texture_float_linear');
+
+  // ---------------------------------------------------------------- glue --
+  const VS = `#version 300 es
+  void main(){
+    vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2);
+    gl_Position = vec4(p*2.0-1.0, 0.0, 1.0);
+  }`;
+
+  function owner(line) {
+    const m = window.SHADERS.sceneMap || [];
+    for (const e of m) if (line >= e.from && line <= e.to) return `${e.name}:${line - e.from + 1}`;
+    return 'line ' + line;
+  }
+
+  function sh(type, srcTxt, tag) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, srcTxt); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(s);
+      const first = (log.match(/ERROR:\s*\d+:(\d+)/) || [])[1];
+      const where = first ? owner(parseInt(first, 10)) : '?';
+      document.body.dataset.shaderError = tag + ' @ ' + where + '\n' + log;
+      fail(tag + ' @ ' + where);
+    }
+    return s;
+  }
+
+  function prog(fsSrc, tag) {
+    const p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, VS, tag + '.vs'));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc, tag + '.fs'));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) fail(tag + ' link: ' + gl.getProgramInfoLog(p));
+    return p;
+  }
+
+  function tex(w, h, filter) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  function fbo(t) {
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return f;
+  }
+
+  // --------------------------------------------------------- bloom shaders --
+  const BRIGHT = `#version 300 es
+  precision highp float; out vec4 o;
+  uniform sampler2D uSrc; uniform vec2 uDst; uniform float uThresh;
+  void main(){
+    vec2 uv = gl_FragCoord.xy/uDst;
+    vec3 c = texture(uSrc, uv).rgb;
+    float l = dot(c, vec3(0.2126,0.7152,0.0722));
+    float k = max(l-uThresh,0.0)/max(l,1e-4);
+    o = vec4(c*k, 1.0);
+  }`;
+  const BLUR = `#version 300 es
+  precision highp float; out vec4 o;
+  uniform sampler2D uSrc; uniform vec2 uDst; uniform vec2 uDir;
+  void main(){
+    vec2 uv = gl_FragCoord.xy/uDst;
+    vec2 s = uDir/uDst;
+    float w[5]; w[0]=0.227; w[1]=0.194; w[2]=0.121; w[3]=0.054; w[4]=0.016;
+    vec3 c = texture(uSrc, uv).rgb*w[0];
+    for(int i=1;i<5;i++){
+      c += texture(uSrc, uv + s*float(i)).rgb*w[i];
+      c += texture(uSrc, uv - s*float(i)).rgb*w[i];
+    }
+    o = vec4(c,1.0);
+  }`;
+  const UPADD = `#version 300 es
+  precision highp float; out vec4 o;
+  uniform sampler2D uA; uniform sampler2D uB; uniform vec2 uDst;
+  void main(){ vec2 uv=gl_FragCoord.xy/uDst; o = vec4(texture(uA,uv).rgb + texture(uB,uv).rgb, 1.0); }`;
+
+  const pScene  = prog(window.SHADERS.scene, 'scene');
+  const pComp   = prog(window.SHADERS.composite, 'composite');
+  const pBright = prog(BRIGHT, 'bright');
+  const pBlur   = prog(BLUR, 'blur');
+  const pAdd    = prog(UPADD, 'add');
+
+  const hdrT = tex(IW, IH, gl.NEAREST), hdrF = fbo(hdrT);
+
+  const B1W = Math.max(2, IW >> 2), B1H = Math.max(2, IH >> 2);
+  const B2W = Math.max(2, IW >> 4), B2H = Math.max(2, IH >> 4);
+  const b1a = tex(B1W, B1H, gl.LINEAR), f1a = fbo(b1a);
+  const b1b = tex(B1W, B1H, gl.LINEAR), f1b = fbo(b1b);
+  const b2a = tex(B2W, B2H, gl.LINEAR), f2a = fbo(b2a);
+  const b2b = tex(B2W, B2H, gl.LINEAR), f2b = fbo(b2b);
+
+  const va = gl.createVertexArray();
+  gl.bindVertexArray(va);
+
+  const U = (p, n) => gl.getUniformLocation(p, n);
+  const draw = () => gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  function pass(p, target, w, h, setup) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target);
+    gl.viewport(0, 0, w, h);
+    gl.useProgram(p);
+    gl.uniform2f(U(p, 'uDst'), w, h);
+    setup && setup(p);
+    draw();
+  }
+  function bindTex(p, name, t, unit) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.uniform1i(U(p, name), unit);
+  }
+
+  // ------------------------------------------------------------ the render --
+  gl.bindFramebuffer(gl.FRAMEBUFFER, hdrF);
+  gl.viewport(0, 0, IW, IH);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST);
+
+  const tiles = [];
+  for (let y = 0; y < IH; y += TILE) tiles.push([0, y, IW, Math.min(TILE, IH - y)]);
+
+  let ti = 0;
+  const t0 = performance.now();
+  document.title = 'rendering 0/' + tiles.length;
+
+  function sceneTile() {
+    const [tx, ty, tw, th] = tiles[ti];
+    gl.bindFramebuffer(gl.FRAMEBUFFER, hdrF);
+    gl.viewport(tx, ty, tw, th);
+    gl.useProgram(pScene);
+    gl.uniform2f(U(pScene, 'uRes'), IW, IH);
+    gl.uniform4f(U(pScene, 'uTile'), tx, ty, tw, th);
+    gl.uniform2f(U(pScene, 'uJitter'), 0, 0);
+    gl.uniform1f(U(pScene, 'uTime'), 0);
+    gl.uniform1i(U(pScene, 'uIsolate'), ISO);
+    gl.uniform1i(U(pScene, 'uMode'), MODE);
+    draw();
+    ti++;
+    document.title = 'rendering ' + ti + '/' + tiles.length;
+  }
+
+  function finish() {
+    // bloom chain
+    pass(pBright, f1a, B1W, B1H, (p) => { bindTex(p, 'uSrc', hdrT, 0); gl.uniform1f(U(p, 'uThresh'), 1.0); });
+    pass(pBlur, f1b, B1W, B1H, (p) => { bindTex(p, 'uSrc', b1a, 0); gl.uniform2f(U(p, 'uDir'), 1, 0); });
+    pass(pBlur, f1a, B1W, B1H, (p) => { bindTex(p, 'uSrc', b1b, 0); gl.uniform2f(U(p, 'uDir'), 0, 1); });
+    pass(pBlur, f2a, B2W, B2H, (p) => { bindTex(p, 'uSrc', b1a, 0); gl.uniform2f(U(p, 'uDir'), 1, 0); });
+    pass(pBlur, f2b, B2W, B2H, (p) => { bindTex(p, 'uSrc', b2a, 0); gl.uniform2f(U(p, 'uDir'), 0, 1); });
+    pass(pBlur, f2a, B2W, B2H, (p) => { bindTex(p, 'uSrc', b2b, 0); gl.uniform2f(U(p, 'uDir'), 1, 0); });
+    pass(pAdd, f1b, B1W, B1H, (p) => { bindTex(p, 'uA', b1a, 0); bindTex(p, 'uB', b2a, 1); });
+
+    // composite + supersample resolve to the visible canvas
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.useProgram(pComp);
+    gl.uniform2f(U(pComp, 'uRes'), W, H);
+    gl.uniform4f(U(pComp, 'uTile'), 0, 0, W, H);
+    gl.uniform2f(U(pComp, 'uJitter'), 0, 0);
+    gl.uniform1i(U(pComp, 'uIsolate'), ISO);
+    gl.uniform1i(U(pComp, 'uMode'), MODE);
+    gl.uniform1f(U(pComp, 'uInvSamples'), 1.0);
+    gl.uniform1i(U(pComp, 'uSS'), SS);
+    bindTex(pComp, 'uHDR', hdrT, 0);
+    bindTex(pComp, 'uBloomTex', b1b, 1);
+    draw();
+    gl.finish();
+
+    const ms = Math.round(performance.now() - t0);
+    document.title = 'DONE ' + ms + 'ms ' + W + 'x' + H + ' ss' + SS;
+    window.__renderDone = true;
+  }
+
+  function step() {
+    const budget = performance.now() + 900;
+    while (ti < tiles.length && performance.now() < budget) sceneTile();
+    if (ti < tiles.length) requestAnimationFrame(step);
+    else finish();
+  }
+  requestAnimationFrame(step);
+};
+</script>

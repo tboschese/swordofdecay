@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m1 terreno",
+  "round": 12,
+  "gap": "PASSOU. A linha continua de musgo morreu, e MEDIDA: maior janela plana de luminancia na linha de superficie caiu de 70 pra 11 colunas, cortes de valor de 10 pra 40. O agente achou a causa que tinha escapado: variar MATERIAL e variar matiz, e o olho segue VALOR primeiro — musgo/calcamento/terra estavam todos na mesma banda de luz, entao a regua sobrevivia so que colorida. So percebeu renderizando dessaturado. CAVEAT dele: a linha de superficie escureceu (0.364 -> 0.282) e o read depende da atmosfera do m4 seguir clara; se a nevoa escurecer, a borda de cima perde definicao.",
+  "assumption": null
+}

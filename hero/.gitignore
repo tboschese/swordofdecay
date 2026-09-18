@@ -1,0 +1,7 @@
+# Generated shader bundles — rebuilt by build.mjs from src/*.glsl
+build/
+
+# Scratch renders from builder/critic agents. The round renders that the
+# progress page embeds are kept explicitly below.
+out/*
+!out/rounds/

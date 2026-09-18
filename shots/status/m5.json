@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "owner": "m5 atmosfera",
+  "round": 9,
+  "gap": "PASSOU e LIGADO por mim. 4 camadas de particula de ar com parallax proprio, feixes de luz e 4 presets de clima (overcast/drizzle/deepFog/dusk), todos medidos dentro de 0.32-0.42 de media e p99 > 0.75. Custo ~0.024ms/frame contra 0.6 do grade. CORRIGI o risco que ele mesmo apontou: o construtor sorteava ~1100 valores do rng GLOBAL, o que deslocaria o fluxo compartilhado e tornaria toda captura anterior incomparavel; trocado por PRNG local com semente fixa. Restam: amplitude entre faixas segue 0.36 (e do parallax/tileset, nao da atmosfera), e os presets de clima nunca foram testados em cena de combate.",
+  "assumption": null
+}

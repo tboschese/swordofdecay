@@ -25,6 +25,28 @@ provavelmente precisam ser trocados/reavaliados pro novo alvo. Nenhuma
 sessão concluída (1-5) muda de escopo por causa disso — é só o padrão de
 qualidade visual/sonoro daqui pra frente.
 
+**Migração de engine (2026-07-21/22, registrada em 2026-07-29)**: o jogo
+saiu do Phaser 3 pra um engine canvas 2D próprio — `src/engine/`,
+`src/core/`, `src/game/`, `src/render/`. É porte 1:1 do gameplay (mesmas
+fórmulas de aceleração, fricção, gravidade assimétrica, coyote, buffer,
+jump cutoff; ver comentário em `src/core/Player.ts`), sem nenhum número
+de gameplay novo — só a casca mudou. A camada orientada a dados
+(`config/`, `level/`, `levels/`) foi reaproveitada inteira. `src/scenes/`
+e `src/entities/` (Phaser) continuam no repo mas estão mortos; `phaser`
+ainda consta no `package.json` e ainda não foi removido.
+
+Pixi.js foi avaliado como alternativa em 2026-07-29 e **descartado** —
+ver `PIXI.md`. Resumo: a esta resolução (384×224 = 86k pixels) um passe
+de grade completo custa 0.62ms em canvas 2D puro, 3.7% do frame, então o
+argumento pró-WebGL não se sustenta. O gap pro alvo AAA é de arte, não de
+renderer.
+
+**Push AAA (2026-07-29, em andamento)**: trabalho de apresentação em 8
+módulos com dono único, fora da numeração de sessões. Contrato em
+`AAA_BRIEF.md`, estado em `progress.json` e `TASKS.md`, dashboard via
+`node shots/dashboard.mjs`. Não substitui a Sessão 7 — a absorve no
+módulo m7 (HUD).
+
 ---
 
 ## Sessão 1 — Arquétipos de movimento e combate (game feel puro)
@@ -156,19 +178,39 @@ inteiro mudou pra SNES/Neo Geo (mais cor, sombreamento em gradiente) —
 ver DESIGN.md §2.1. **Pendente**: tileset atual (`public/assets/tiles/forest`)
 é estilo NES chapado, não bate com o novo alvo — precisa ser substituído.
 
-**Música (implementado em 2026-07-05, precisa reavaliar pro novo alvo)**:
-4 faixas CC0 de Juhani Junkala curadas por mood (`aventura`, `perigo`,
-`misterio`, `final` — ver `src/config/music.ts`, ASSETS.md). `LEVEL_1`
-usa mood `aventura` (`src/levels/level1.ts`), tocando em loop via
-`TilemapScene`. Só a faixa do mood ativo é carregada, não a biblioteca
-inteira. **Pendente**: as 4 faixas são "chiptune" de nome/textura — podem
+**Música (implementado em 2026-07-05, PERDIDO na migração, religado em
+2026-08-14)**: 4 faixas CC0 de Juhani Junkala curadas por mood
+(`aventura`, `perigo`, `misterio`, `final` — ver `src/config/music.ts`,
+ASSETS.md). `LEVEL_1` usa mood `aventura` (`src/levels/level1.ts`).
+
+**O que estava escrito aqui antes**: "tocando em loop via `TilemapScene`".
+`TilemapScene` é uma das cenas Phaser **deletadas** na reescrita pro
+engine próprio. A trilha morreu junto e ninguém notou por semanas — o
+jogo rodava sem uma nota, com `config/music.ts` importado só pelo *tipo*
+`Mood` e 20MB de áudio em `public/` que nada lia. Religado em
+`src/engine/audio.ts`: `preload` no construtor (enquanto o jogador lê o
+título) e `play()` no Z que sai do título, que é o gesto de usuário que o
+navegador exige pra liberar autoplay. O harness de captura chama
+`setEnabled(false)`.
+
+**Peso corrigido junto**: as faixas estavam em ~330-350kbps e somavam
+20MB — `misterio` sozinho tinha 14MB (5min24s a 352kbps) — para um jogo
+de 130KB de código. Recodificadas em AAC 96k: **5.9MB**. AAC e não
+Opus/Vorbis por ser o único com suporte parelho nos três navegadores.
+
+**Pendente**: as 4 faixas são "chiptune" de nome/textura — podem
 não bater com o alvo mais rico de SNES/Neo Geo (DESIGN.md §3.1).
 
 **Critério de saída**: tileset final do jogo com sombreamento em
 gradiente (não chapado), consistente com o alvo SNES/Neo Geo (DESIGN.md
-§2.1) — **pendente**, tileset ainda não trocado. Faixas de música soando
-mais como trilha instrumentada de 16/32-bit do que chiptune puro
-(DESIGN.md §3.1) — **pendente**, falta playtest/re-curação.
+§2.1) — **atendido, mas por outro caminho**: em vez de trocar o PNG, o
+tileset passou a ser desenhado em código (`src/render/TileArt.ts`, lábio →
+oclusão → corpo → base, 4 variantes por hash da posição no mundo). O PNG
+do OpenGameArt está morto — `TILESET_PATH` em `config/tileset.ts` é
+declarado e nunca lido. Medido: chapado 0.10%, contra 41.6% do baseline.
+Faixas de música soando mais como trilha instrumentada de 16/32-bit do
+que chiptune puro (DESIGN.md §3.1) — **pendente**, falta playtest/re-curação
+(agora possível: até 2026-08-14 não tocava nada, ver acima).
 
 ---
 
